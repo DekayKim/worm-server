@@ -1,10 +1,8 @@
 const common = require('../handler/common.js');
-const msgpack = require("msgpack5")();
 
 const utils = new function() {
-    this.ec = msgpack.decode;
-    this.dc = msgpack.encode;
 
+    this.doAsync = fn => async (req, res, next) => await fn(req, res, next).catch(next)
     this.getNewId = function(list, prefix = '') {
         let id;
         do {

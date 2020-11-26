@@ -1,8 +1,9 @@
 const Utils = require('../object/utils.js');
+const sockIO = require('../handler/socket.js');
 const Player = require('../object/player.js');
 
-const ROOM_PLAYER_CAPACITY = 33;
-const ROOM_AI_CAPACITY = 30;
+const ROOM_PLAYER_CAPACITY = 100;
+const ROOM_AI_CAPACITY = 98;
 const FEED_CAPACITY = 1000;
 const FEED_COUNT_PER_PLAYER = 2;
 const FEED_CREATE_PLAYER_RANGE = 600;
@@ -29,10 +30,29 @@ class Room {
         this.lastTick = {};
         this.playerList = [];
         this.foodList = {};
-        this.socketHdlr = socketHdlr;
 
         // this.createAI(common.playerList);
         this.createFood(true);
+    }
+    static setRoom(roomList, playerList, socketList, sessionId, userObj, type) { // , roomId = null
+        return new Promise(async function (resolve, reject) { try {
+            let roomId = self.getNotFull(roomList);
+    
+            if (roomId === false) {
+                console.log("creating room...");
+                roomId = Utils.getNewId(roomList);
+                roomList[roomId] = new self(roomList, roomId, sockIO);
+                
+                roomList[roomId].createAI(playerList);
+            }
+            roomList[roomId].join(userObj);
+                
+            socketList[sessionId].join(roomId);
+    
+            resolve(roomId);
+        } catch (error) {
+            reject(error);
+        }})
     }
 
     static getNotFull(roomList) {
@@ -74,7 +94,7 @@ class Room {
                 amount: Math.ceil(Math.random() * SUBTRACT_POINT_PER_BOOST)
             };
             this.foodList[foodObj.id] = foodObj;
-            this.socketHdlr.to(this.id).emit(`new_food`, Utils.ec(foodObj));
+            sockIO.send(sockIO.to(this.id), 'new_food', foodObj);
         }
         console.log(`Food+Wreck: ${Object.keys(this.foodList).length} (+${createCount})`);
         return rtn;
@@ -92,7 +112,7 @@ class Room {
                     amount: this.getFoodAmount()
                 };
                 this.foodList[foodObj.id] = foodObj;
-                this.socketHdlr.to(this.id).emit(`new_food`, Utils.ec(foodObj));
+                sockIO.send(sockIO.to(this.id), 'new_food', foodObj);
                 testCounter++
             }
         } else {
@@ -120,7 +140,7 @@ class Room {
                         amount: this.getFoodAmount()
                     };
                     this.foodList[foodObj.id] = foodObj;
-                    this.socketHdlr.to(this.id).emit(`new_food`, Utils.ec(foodObj));
+                    sockIO.send(sockIO.to(this.id), 'new_food', foodObj);
                     testCounter++
                 }
             })
@@ -128,7 +148,7 @@ class Room {
         console.log(`Food: ${Object.keys(this.foodList).length} (+${testCounter})`);
     }
 
-    createAI(playerList, x, y) {
+    createAI(playerList) {
         let isCreated = false;
         for (let idx = 0; idx < ROOM_AI_CAPACITY; idx++) {
             console.log('check AI cap..',
@@ -154,11 +174,11 @@ class Room {
                 // point: data.name.indexOf('p') === 0 ? Number(data.name.substr(1)) :0 
             })
             this.join(playerList[userId]);
-            
-            this.socketHdlr.to(this.id).emit('new_worm', Utils.ec(Object.assign(
+
+            sockIO.send(sockIO.to(this.id), 'new_worm', Object.assign(
                 { name: playerList[userId].name },
                 playerList[userId].myLastTick
-            )));
+            ));
         }
         return isCreated;
     }
@@ -184,17 +204,18 @@ class Room {
             };
         }).forEach(({ eachSockHdlr, userId }) => { // 재분배된 AI 알림
             console.log(`할당된 AI: ${userId} > ${this.getAIHandle(userId).length}EA`);
-            eachSockHdlr.emit('ai', Utils.ec(this.getAIHandle(userId)) );
+            sockIO.send(eachSockHdlr, 'ai', this.getAIHandle(userId));
+            sockIO.send(eachSockHdlr, 'ai', []);
         })
         if (dyingSocket) {
-            dyingSocket.emit('ai', Utils.ec([]));
+            sockIO.send(dyingSocket, 'ai', []);
         }
         console.log('setAIHandle 종료')
     }
     getAIHandle(userId) {
         return this.playerList
             .filter(playerData => playerData._aiHandler === userId)
-            // .map(playerData => playerList[playerData].myLastTick)
+            .map(playerData => playerData.id)
         ;
     }
 

@@ -4,7 +4,7 @@ const {
 const schedule = require('node-schedule');
 
 const common = require('../handler/common.js');
-const socketHdlr = require('../handler/socket.js');
+const sockIO = require('../handler/socket.js');
 // const redis = require('../handler/redis.js');
 
 const Utils = require('../object/utils.js');
@@ -30,10 +30,11 @@ module.exports = function (app) {
                 let isCreated = common.roomList[roomId].createAI(common.playerList);
                 isCreated && common.roomList[roomId].setAIHandle(common.socketList);
 
-                socketHdlr.to(roomId).emit('map', Utils.ec(
-                    Object.values(common.roomList[roomId].lastTick)
-                    .map(e => {return { x: e.x, y: e.y }})
-                ));
+                sockIO.send(
+                    sockIO.to(roomId),
+                    'map',
+                    Object.values(common.roomList[roomId].lastTick).map(e => {return { x: e.x, y: e.y }})
+                );
             }
         }, 10000);
         resolve(true);

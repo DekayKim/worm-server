@@ -5,18 +5,11 @@ var fs = require('fs');
 
 const common = require('../handler/common.js');
 const Utils = require('../object/utils.js');
-const socketHdlr = require('../handler/socket.js');
+const sockIO = require('../handler/socket.js');
 
+const Room = require('../object/room.js');
 const Player = require('../object/player.js');
-const doAsync = fn => async (req, res, next) => await fn(req, res, next).catch(next);
-const doDecode = data => {
-    try {
-        data = Utils.dc(data);
-    } catch (error) {
-        console.warn(`DECODE ERROR : ${error}`);
-    }
-    return data;
-}
+
 
 /* GET home page. */
 router.get('/', function (req, res, next) {
@@ -34,7 +27,7 @@ router.get('/api', function (req, res, next) {
 });
 
 //* socket
-socketHdlr.on('connection', async (socket) => {
+sockIO.on('connection', async (socket) => {
     console.log("[ROR] a user connected", socket.id);
     common.socketList[socket.id] = socket;
 
@@ -43,7 +36,7 @@ socketHdlr.on('connection', async (socket) => {
     let socketId = socket.id;
 
     socket.prependAny((event, ...args) => {
-        const data = doDecode(args[0]);
+        const data = sockIO.decode(event, args[0]);
         switch (event) {
             case 'position':
                 break;
@@ -58,6 +51,7 @@ socketHdlr.on('connection', async (socket) => {
                 break;
         }
     })
+    socket.emit('schema', common.SCHEMA_LIST);
 
     // 우선 로그인이 없으니 게스트만 허용
     userId = Utils.getNewId(common.playerList); //, 'guest:');
@@ -66,7 +60,7 @@ socketHdlr.on('connection', async (socket) => {
 
     //* 게임 시작
     socket.on('enter', async data => {
-        data = doDecode(data);
+        data = sockIO.decode('enter', data);
 
         // 이후 플레이어 생성 시작
         common.playerList[userId] = new Player(common.playerList, userId, {
@@ -77,7 +71,10 @@ socketHdlr.on('connection', async (socket) => {
         });
 
         // 룸 세팅 (join)
-        roomId = await socketHdlr.setRoom(socketId, common.playerList[userId], 'game');
+        roomId = await Room.setRoom(
+            common.roomList, common.playerList, common.socketList,
+            socketId, common.playerList[userId], 'game'
+        );
         //! 임시 정의
         common.playerList[userId].setCurrent({
             x: 200,
@@ -89,49 +86,54 @@ socketHdlr.on('connection', async (socket) => {
             // Object.values(common.roomList[roomId].lastTick).map(e => `id(${e.id}) / name(${e.name}) / isAI(${e.isAI})`),
             `현재 '${roomId}' 방 인원: ${Object.values(common.roomList[roomId].lastTick).length}`
         )
-        socket.emit('enter', Utils.ec({
+
+        sockIO.send(socket, 'enter', {
             myId: userId,
             player: Object.values(common.roomList[roomId].lastTick),
             food: Object.values(common.roomList[roomId].foodList),
-        }));
+        });
 
         // AI 할당 및 재분배 알림
         common.roomList[roomId].setAIHandle(common.socketList);
 
-        socketHdlr.to(roomId).emit('new_worm', Utils.ec(Object.assign(
+        sockIO.send(sockIO.to(roomId), 'new_worm', Object.assign(
             { name: data.name },
             common.playerList[userId].myLastTick
-        )));
+        ));
     });
     
     socket.on('bound_check', data => {
-        data = doDecode(data);
+        data = sockIO.decode('bound_check', data);
         if (userId === null || roomId === null) return console.warn('wrong access', data);
 
-        socket.to(roomId).emit(`bound_check`, Utils.ec(data));
+        sockIO.send(socket.to(roomId), 'bound_check', data);
     });
     
     socket.on('inbound', data => {
-        data = doDecode(data);
+        data = sockIO.decode('inbound', data);
         if (userId === null || roomId === null) return console.warn('wrong access', data);
         if (!(data.requestId in common.playerList)) return;
 
-        common.socketList[common.playerList[data.requestId].socketId].emit('inbound', Utils.ec(data));
+        
+        sockIO.send(
+            common.socketList[common.playerList[data.requestId].socketId],
+            'inbound', data
+        );
     });
 
     socket.on('position', data => {
-        data = doDecode(data);
+        data = sockIO.decode('position', data);
         if (userId === null || roomId === null) return;//  console.warn('wrong access', data);
         if (!(userId in common.playerList)) return `no-act pos ${userId}`;
 
         //! 업데이트 검증 필요함
 
         common.playerList[data.id].setCurrent(data);
-        socket.to(roomId).emit(`position`, Utils.ec(data));
+        sockIO.send(socket.to(roomId), 'position', data);
     });
 
     socket.on('eat', data => {
-        data = doDecode(data);
+        data = sockIO.decode('eat', data);
         if (userId === null || roomId === null) return console.warn('wrong access');
         if (!(data.wormId in common.playerList)) return;
         try {
@@ -144,7 +146,7 @@ socketHdlr.on('connection', async (socket) => {
             delete common.roomList[roomId].foodList[data.foodId];
 
             setTimeout(() => {
-                socketHdlr.to(roomId).emit(`delete_food`, Utils.ec(data.foodId));
+                sockIO.send(sockIO.to(roomId), 'delete_food', data.foodId);
 
                 // setTimeout 이후에는 해당 지렁이가 없을 수 있음
                 if (data.wormId in common.playerList) {
@@ -152,10 +154,10 @@ socketHdlr.on('connection', async (socket) => {
                         point: common.playerList[data.wormId].myLastTick.point + foodAmount
                     });
                     
-                    socket.to(roomId).emit(`point`, Utils.ec({
+                    sockIO.send(socket.to(roomId), 'point', {
                         id: data.wormId,
                         point: common.playerList[data.wormId].myLastTick.point
-                    }));
+                    });
                 }
             }, 500); // 자석으로 음식 흡수하는 시간 절대값
             
@@ -165,7 +167,7 @@ socketHdlr.on('connection', async (socket) => {
     });
 
     socket.on('boost', data => {
-        data = doDecode(data);
+        data = sockIO.decode('boost', data);
         if (userId === null || roomId === null) return console.warn('wrong access');
         if (!(userId in common.playerList)) return;
         try {
@@ -175,17 +177,17 @@ socketHdlr.on('connection', async (socket) => {
                 point: common.playerList[userId].myLastTick.point - subtractAmount
             });
             
-            socket.to(roomId).emit(`point`, Utils.ec({
+            sockIO.send(socket.to(roomId), 'point', {
                 id: userId,
                 point: common.playerList[userId].myLastTick.point
-            }));
+            });
         } catch (error) {
             console.error(error);
         }
     });
 
     socket.on('conflict', data => {
-        data = doDecode(data);
+        data = sockIO.decode('conflict', data);
         if (userId === null || roomId === null) return console.warn('wrong access', data);
         if (!(data.id in common.playerList)) return;
         try {

@@ -1,4 +1,5 @@
 const Utils = require('../object/utils.js');
+const sockIO = require('../handler/socket.js');
 
 const START_POINT = 0;
 const STAGE_SIZE = 100;
@@ -41,7 +42,11 @@ class Player {
     destroy(roomList, playerList) {
         console.log(`remove '${this.id}' worm in '${this.roomId}'`);
         if (this.roomId !== null) {
-            roomList[this.roomId].socketHdlr.to(this.roomId).emit('delete_worm', Utils.ec(this.id));
+
+            sockIO.send(
+                sockIO.to(this.roomId),
+                'delete_worm', this.id
+            );
 
             // 룸 내 플레이어 정보 모두 제거
             delete roomList[this.roomId].lastTick[this.id];
