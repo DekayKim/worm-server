@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.1/socket.io.js" integrity="sha512-vGcPDqyonHb0c11UofnOKdSAt5zYRpKI4ow+v6hat4i96b7nHSn8PQyk0sT5L9RECyksp+SztCPP6bqeeGaRKg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/msgpack5/4.2.0/msgpack5.min.js" integrity="sha512-D0GVJIuE4FlQJvwnzUBEQ6cb1f72Tg/4iELPcFZpU/a8QPvX805QUm13NhN1kcDtkbrL8Ji/+uyapjaXTqm00Q==" crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <h1><%= title %></h1>
+    <p>Welcome to <%= title %></p>
+    <script>
+      msgpack = msgpack5();
+      let myId = null;
+      let my = {};
+      let ai = [];
+
+      const socket = io('http://127.0.0.1:3636');
+      socket.emit('enter', msgpack.encode({name: 'test'}));
+
+      socket.on('reset', (data) => {
+        location.reload();
+      })
+      
+      socket.on('enter', (data) => { data = msgpack.decode(data);
+        myId = data.myId;
+        console.log(`my ID(${data.myId}), receive players...`, data.player)
+      })
+
+      socket.on('setting', (data) => { data = msgpack.decode(data);
+        ai = data;
+        console.log(`receive setting...`, ai)
+      })
+
+      socket.on('new', (data) => { data = msgpack.decode(data);
+        if (data.id === myId) {
+          my = data;
+          console.log('new', data)
+        }
+      })
+      socket.on('refresh', (data) => { data = msgpack.decode(data);
+        console.log('refresh', data)
+      })
+
+      // setInterval(() => {
+      //   my.x++, my.y++, my.radius++;
+      //   socket.emit('refresh', msgpack.encode({ my, ai}));
+      // }, 5000);
+    </script>
+  </body>
+</html>

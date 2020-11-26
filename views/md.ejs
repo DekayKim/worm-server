@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/12.0.2/markdown-it.min.js" integrity="sha512-7VN0JcGJWL+i8LXzTvbROqUSPzZIu8Fp6GWpkVwtHwrgWwY8CrbZgyHA2YpNhAASQNrYqGYoI2HusCqV+S2xnQ==" crossorigin="anonymous"></script>
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.1/socket.io.js" integrity="sha512-vGcPDqyonHb0c11UofnOKdSAt5zYRpKI4ow+v6hat4i96b7nHSn8PQyk0sT5L9RECyksp+SztCPP6bqeeGaRKg==" crossorigin="anonymous"></script> -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/msgpack5/4.2.0/msgpack5.min.js" integrity="sha512-D0GVJIuE4FlQJvwnzUBEQ6cb1f72Tg/4iELPcFZpU/a8QPvX805QUm13NhN1kcDtkbrL8Ji/+uyapjaXTqm00Q==" crossorigin="anonymous"></script> -->
+  </head>
+  <body>
+    <h1><%= title %></h1>
+    ...
+    <p><%- mdText %></p>
+    
+    <!-- <div id='zz'></div>
+    <script>
+      var md = window.markdownit();
+      var result = md.render('```var a = 1;```');
+      window.onload = () => {
+
+        document.querySelector('#zz').innerHTML = result;
+      }
+    </script> -->
+  </body>
+</html>
