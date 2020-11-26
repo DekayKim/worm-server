@@ -1,5 +1,3 @@
-var msgpack = require("msgpack5")();
-
 const Utils = require('../object/utils.js');
 const Player = require('../object/player.js');
 
@@ -76,7 +74,7 @@ class Room {
                 amount: Math.ceil(Math.random() * SUBTRACT_POINT_PER_BOOST)
             };
             this.foodList[foodObj.id] = foodObj;
-            this.socketHdlr.to(this.id).emit(`new_food`, msgpack.encode(foodObj));
+            this.socketHdlr.to(this.id).emit(`new_food`, Utils.ec(foodObj));
         }
         console.log(`Food+Wreck: ${Object.keys(this.foodList).length} (+${createCount})`);
         return rtn;
@@ -94,7 +92,7 @@ class Room {
                     amount: this.getFoodAmount()
                 };
                 this.foodList[foodObj.id] = foodObj;
-                this.socketHdlr.to(this.id).emit(`new_food`, msgpack.encode(foodObj));
+                this.socketHdlr.to(this.id).emit(`new_food`, Utils.ec(foodObj));
                 testCounter++
             }
         } else {
@@ -122,7 +120,7 @@ class Room {
                         amount: this.getFoodAmount()
                     };
                     this.foodList[foodObj.id] = foodObj;
-                    this.socketHdlr.to(this.id).emit(`new_food`, msgpack.encode(foodObj));
+                    this.socketHdlr.to(this.id).emit(`new_food`, Utils.ec(foodObj));
                     testCounter++
                 }
             })
@@ -157,7 +155,7 @@ class Room {
             })
             this.join(playerList[userId]);
             
-            this.socketHdlr.to(this.id).emit('new_worm', msgpack.encode(Object.assign(
+            this.socketHdlr.to(this.id).emit('new_worm', Utils.ec(Object.assign(
                 { name: playerList[userId].name },
                 playerList[userId].myLastTick
             )));
@@ -186,10 +184,10 @@ class Room {
             };
         }).forEach(({ eachSockHdlr, userId }) => { // 재분배된 AI 알림
             console.log(`할당된 AI: ${userId} > ${this.getAIHandle(userId).length}EA`);
-            eachSockHdlr.emit('ai', msgpack.encode(this.getAIHandle(userId)) );
+            eachSockHdlr.emit('ai', Utils.ec(this.getAIHandle(userId)) );
         })
         if (dyingSocket) {
-            dyingSocket.emit('ai', msgpack.encode([]));
+            dyingSocket.emit('ai', Utils.ec([]));
         }
         console.log('setAIHandle 종료')
     }

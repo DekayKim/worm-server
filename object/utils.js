@@ -1,6 +1,10 @@
 const common = require('../handler/common.js');
+const msgpack = require("msgpack5")();
 
 const utils = new function() {
+    this.ec = msgpack.decode;
+    this.dc = msgpack.encode;
+
     this.getNewId = function(list, prefix = '') {
         let id;
         do {

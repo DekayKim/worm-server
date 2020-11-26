@@ -3,7 +3,6 @@ var router = express.Router();
 var md = require('markdown-it')('commonmark');
 var fs = require('fs');
 
-var msgpack = require("msgpack5")();
 const common = require('../handler/common.js');
 const Utils = require('../object/utils.js');
 const socketHdlr = require('../handler/socket.js');
@@ -12,7 +11,7 @@ const Player = require('../object/player.js');
 const doAsync = fn => async (req, res, next) => await fn(req, res, next).catch(next);
 const doDecode = data => {
     try {
-        data = msgpack.decode(data);
+        data = Utils.dc(data);
     } catch (error) {
         console.warn(`DECODE ERROR : ${error}`);
     }
@@ -90,7 +89,7 @@ socketHdlr.on('connection', async (socket) => {
             // Object.values(common.roomList[roomId].lastTick).map(e => `id(${e.id}) / name(${e.name}) / isAI(${e.isAI})`),
             `현재 '${roomId}' 방 인원: ${Object.values(common.roomList[roomId].lastTick).length}`
         )
-        socket.emit('enter', msgpack.encode({
+        socket.emit('enter', Utils.ec({
             myId: userId,
             player: Object.values(common.roomList[roomId].lastTick),
             food: Object.values(common.roomList[roomId].foodList),
@@ -99,7 +98,7 @@ socketHdlr.on('connection', async (socket) => {
         // AI 할당 및 재분배 알림
         common.roomList[roomId].setAIHandle(common.socketList);
 
-        socketHdlr.to(roomId).emit('new_worm', msgpack.encode(Object.assign(
+        socketHdlr.to(roomId).emit('new_worm', Utils.ec(Object.assign(
             { name: data.name },
             common.playerList[userId].myLastTick
         )));
@@ -109,7 +108,7 @@ socketHdlr.on('connection', async (socket) => {
         data = doDecode(data);
         if (userId === null || roomId === null) return console.warn('wrong access', data);
 
-        socket.to(roomId).emit(`bound_check`, msgpack.encode(data));
+        socket.to(roomId).emit(`bound_check`, Utils.ec(data));
     });
     
     socket.on('inbound', data => {
@@ -117,7 +116,7 @@ socketHdlr.on('connection', async (socket) => {
         if (userId === null || roomId === null) return console.warn('wrong access', data);
         if (!(data.requestId in common.playerList)) return;
 
-        common.socketList[common.playerList[data.requestId].socketId].emit('inbound', msgpack.encode(data));
+        common.socketList[common.playerList[data.requestId].socketId].emit('inbound', Utils.ec(data));
     });
 
     socket.on('position', data => {
@@ -128,7 +127,7 @@ socketHdlr.on('connection', async (socket) => {
         //! 업데이트 검증 필요함
 
         common.playerList[data.id].setCurrent(data);
-        socket.to(roomId).emit(`position`, msgpack.encode(data));
+        socket.to(roomId).emit(`position`, Utils.ec(data));
     });
 
     socket.on('eat', data => {
@@ -145,7 +144,7 @@ socketHdlr.on('connection', async (socket) => {
             delete common.roomList[roomId].foodList[data.foodId];
 
             setTimeout(() => {
-                socketHdlr.to(roomId).emit(`delete_food`, msgpack.encode(data.foodId));
+                socketHdlr.to(roomId).emit(`delete_food`, Utils.ec(data.foodId));
 
                 // setTimeout 이후에는 해당 지렁이가 없을 수 있음
                 if (data.wormId in common.playerList) {
@@ -153,7 +152,7 @@ socketHdlr.on('connection', async (socket) => {
                         point: common.playerList[data.wormId].myLastTick.point + foodAmount
                     });
                     
-                    socket.to(roomId).emit(`point`, msgpack.encode({
+                    socket.to(roomId).emit(`point`, Utils.ec({
                         id: data.wormId,
                         point: common.playerList[data.wormId].myLastTick.point
                     }));
@@ -176,7 +175,7 @@ socketHdlr.on('connection', async (socket) => {
                 point: common.playerList[userId].myLastTick.point - subtractAmount
             });
             
-            socket.to(roomId).emit(`point`, msgpack.encode({
+            socket.to(roomId).emit(`point`, Utils.ec({
                 id: userId,
                 point: common.playerList[userId].myLastTick.point
             }));
