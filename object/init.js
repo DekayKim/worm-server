@@ -37,6 +37,17 @@ module.exports = function (app) {
                 );
             }
         }, 10000);
+        
+        setInterval(() => {
+            for (let roomId in common.roomList) {
+                common.roomList[roomId].controlAI(16);
+                
+                sockIO.send(
+                    sockIO.to(roomId), 'position_all',
+                    Object.values(common.roomList[roomId].lastTick)
+                );
+            }
+        }, 16);
         resolve(true);
     })
 }

@@ -54,7 +54,7 @@ sockIO.on('connection', async (socket) => {
     socket.emit('schema', common.SCHEMA_LIST);
 
     // 우선 로그인이 없으니 게스트만 허용
-    userId = Utils.getNewId(common.playerList); //, 'guest:');
+    userId = Utils.getNewId(common.playerList, '', 1000); //, 'guest:');
     // socket.on("auth", function (data) {}); // console.log('auth', data);
 
 
@@ -89,7 +89,9 @@ sockIO.on('connection', async (socket) => {
 
         sockIO.send(socket, 'enter', {
             myId: userId,
-            player: Object.values(common.roomList[roomId].lastTick),
+            player: Object.values(common.roomList[roomId].lastTick).map(e =>
+                Object.assign({ name: common.playerList[e.id].name}, e)
+            ),
             food: Object.values(common.roomList[roomId].foodList),
         });
 
@@ -129,7 +131,6 @@ sockIO.on('connection', async (socket) => {
         //! 업데이트 검증 필요함
 
         common.playerList[data.id].setCurrent(data);
-        sockIO.send(socket.to(roomId), 'position', data);
     });
 
     socket.on('eat', data => {

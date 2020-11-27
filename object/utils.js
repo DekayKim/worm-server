@@ -3,10 +3,13 @@ const common = require('../handler/common.js');
 const utils = new function() {
 
     this.doAsync = fn => async (req, res, next) => await fn(req, res, next).catch(next)
-    this.getNewId = function(list, prefix = '') {
+    this.getNewId = function(list, prefix = '', isNumeric = false) {
         let id;
         do {
-            id = prefix + Math.random().toString(36).substr(2, 9);
+            id = isNumeric ? 
+                prefix + Math.floor(Math.random() * isNumeric).toString() :
+                prefix + Math.random().toString(36).substr(2, 9)
+            ;
         } while (id in list);
         return id;
     }

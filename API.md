@@ -1,3 +1,21 @@
+# 스키마 송수신
+## schema
+``` js
+data {
+    'S2C': {
+        enter: {
+            myId: 'string',
+            player: [{ name: 'string', id: 'string', isAI: 'boolean', x: 'int16', y: 'int16', point: 'uint16' }],
+            food: [{ id: 'string', x: 'int16', y: 'int16', amount: 'uint8' }]
+        },
+        ...
+    },
+    'C2S': {
+        enter: { name: 'string' },
+        ...
+    }
+}
+```
 # 클라이언트 수신
 ## enter
 - enter 소켓을 서버로 전송 후, 최초 자신의 ID와 방의 모든 플레이어(AI포함) 데이터 수신
@@ -30,6 +48,11 @@ data: id
 - 갱신된 지렁이들의 좌표 수신
 ``` js
     data: { id, x, y }
+```
+## position_all
+- 모든 지렁이들의 좌표 수신
+``` js
+    data: [{ id, x, y }, ...]
 ```
 ## point
 - 자신이 컨트롤하는 지렁이 point 송신

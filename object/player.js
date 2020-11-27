@@ -9,18 +9,27 @@ const STAGE_MARGIN = Math.ceil(STAGE_SIZE * (1 - STAGE_PERCENT) / 2);
 
 class Player {
     constructor(playerList, id, option = {}) {
-        this.id = id || Utils.getNewId(playerList);
+        this.id = id || Utils.getNewId(playerList, '', 1000);
         
         this.socketId = option.socketId || null;
         this._aiHandler = option._aiHandler || null;
         this.isAI = option.isAI;
         // this.roomId = option.roomId; //* room join시 입력됨
-        this.name = option.name;
+        this.name = option.name || this.id.toUpperCase();
+
+        if (this.isAI) {
+            const startDegree = Math.floor(Math.random() * 360);
+            this.aiConf = {
+                degree: {
+                    value: startDegree,
+                    timer: Infinity,
+                    dest: startDegree,
+                }
+            }
+        }
         
         this.myLastTick = option.lastTick;
         this.myLastTick.id = this.id;
-        this.myLastTick.name = this.name;
-        this.myLastTick.isAI = this.isAI;
     }
 
     setCurrent(data) {
@@ -32,8 +41,6 @@ class Player {
         
         return {
             id: null,
-            name: null,
-            isAI: null,
             x: Math.ceil(Math.random() * STAGE_SIZE * STAGE_PERCENT) + STAGE_MARGIN,
             y: Math.ceil(Math.random() * STAGE_SIZE * STAGE_PERCENT) + STAGE_MARGIN,
             point: START_POINT

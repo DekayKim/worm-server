@@ -2,13 +2,15 @@ const Utils = require('../object/utils.js');
 const sockIO = require('../handler/socket.js');
 const Player = require('../object/player.js');
 
-const ROOM_PLAYER_CAPACITY = 100;
-const ROOM_AI_CAPACITY = 98;
-const FEED_CAPACITY = 1000;
-const FEED_COUNT_PER_PLAYER = 2;
-const FEED_CREATE_PLAYER_RANGE = 600;
-const FEED_CREATE_INIT_RANGE = 10000;
-const FEED_CREATE_MAX_AMOUNT = 10;
+const ROOM_PLAYER_CAPACITY = 400;
+const ROOM_AI_CAPACITY = 399;
+
+const FOOD_CAPACITY = 1000;
+const FOOD_COUNT_PER_PLAYER = 2;
+
+const FOOD_CREATE_PLAYER_RANGE = 600;
+const FOOD_CREATE_MAP_RANGE = 10000;
+const FOOD_CREATE_MAX_AMOUNT = 10;
 const FOOD_PERCENT = Object.entries({
     '1': 0.2,
     '2': 0.325,
@@ -21,11 +23,14 @@ const FOOD_PERCENT = Object.entries({
     '9': 0.95,
     '10': 1.0
 });
+const AI_SPEED_PER_FRAME = 200 / 60; // 초당 10px
+const AI_DEGREE_CHANGE_TIME = 1000;
+
 const TAILING_POINT_PER_BOOST = 2;
 const SUBTRACT_POINT_PER_BOOST = 5;
 
 class Room {
-    constructor(roomList, id, socketHdlr) {
+    constructor(roomList, id) {
         this.id = id || Utils.getNewId(roomList);
         this.lastTick = {};
         this.playerList = [];
@@ -73,8 +78,8 @@ class Room {
     }
 
     getFoodAmount() {
-        // let res =  Math.ceil(Math.random() * FEED_CREATE_MAX_AMOUNT);
-        // return (res > FEED_CREATE_MAX_AMOUNT) ? FEED_CREATE_MAX_AMOUNT : a;
+        // let res =  Math.ceil(Math.random() * FOOD_CREATE_MAX_AMOUNT);
+        // return (res > FOOD_CREATE_MAX_AMOUNT) ? FOOD_CREATE_MAX_AMOUNT : a;
         let nowper = Math.random();
         return Number(FOOD_PERCENT.find((am, per) => nowper < per)[0]);
     }
@@ -104,11 +109,11 @@ class Room {
         let testCounter = 0;
 
         if (isInit) {
-            for (let foodIdx = 0; foodIdx < FEED_CAPACITY; foodIdx++) {
+            for (let foodIdx = 0; foodIdx < FOOD_CAPACITY; foodIdx++) {
                 const foodObj = {
                     id: Utils.getNewId(this.foodList),
-                    x: Math.ceil(Math.random() * FEED_CREATE_INIT_RANGE),
-                    y: Math.ceil(Math.random() * FEED_CREATE_INIT_RANGE),
+                    x: Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE),
+                    y: Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE),
                     amount: this.getFoodAmount()
                 };
                 this.foodList[foodObj.id] = foodObj;
@@ -116,21 +121,21 @@ class Room {
                 testCounter++
             }
         } else {
-            if (Object.keys(this.foodList).length >= FEED_CAPACITY) return;
+            if (Object.keys(this.foodList).length >= FOOD_CAPACITY) return;
 
             this.playerList.forEach(playerData => {
                 let {x, y} = playerData.myLastTick;
     
-                for (let foodIdx = 0; foodIdx < FEED_COUNT_PER_PLAYER; foodIdx++) {
-                    let deltaX = Math.ceil(Math.random() * FEED_CREATE_PLAYER_RANGE) - FEED_CREATE_PLAYER_RANGE / 2;
-                    deltaX += (deltaX > 0) ? FEED_CREATE_PLAYER_RANGE : -FEED_CREATE_PLAYER_RANGE;
+                for (let foodIdx = 0; foodIdx < FOOD_COUNT_PER_PLAYER; foodIdx++) {
+                    let deltaX = Math.ceil(Math.random() * FOOD_CREATE_PLAYER_RANGE) - FOOD_CREATE_PLAYER_RANGE / 2;
+                    deltaX += (deltaX > 0) ? FOOD_CREATE_PLAYER_RANGE : -FOOD_CREATE_PLAYER_RANGE;
                     x = parseInt(x + deltaX);
-                    x = (x > FEED_CREATE_INIT_RANGE) ? FEED_CREATE_INIT_RANGE : (x < 0) ? 0 : x;
+                    x = (x > FOOD_CREATE_MAP_RANGE) ? FOOD_CREATE_MAP_RANGE : (x < 0) ? 0 : x;
 
-                    let deltaY = Math.ceil(Math.random() * FEED_CREATE_PLAYER_RANGE) - FEED_CREATE_PLAYER_RANGE / 2;
-                    deltaY += (deltaY > 0) ? FEED_CREATE_PLAYER_RANGE : -FEED_CREATE_PLAYER_RANGE;
+                    let deltaY = Math.ceil(Math.random() * FOOD_CREATE_PLAYER_RANGE) - FOOD_CREATE_PLAYER_RANGE / 2;
+                    deltaY += (deltaY > 0) ? FOOD_CREATE_PLAYER_RANGE : -FOOD_CREATE_PLAYER_RANGE;
                     y = parseInt(y + deltaY);
-                    y = (y > FEED_CREATE_INIT_RANGE) ? FEED_CREATE_INIT_RANGE : (y < 0) ? 0 : y;
+                    y = (y > FOOD_CREATE_MAP_RANGE) ? FOOD_CREATE_MAP_RANGE : (y < 0) ? 0 : y;
 
                     // console.log(`${playerData.myLastTick.x} > ${x} / ${playerData.myLastTick.y} > ${y}`);
 
@@ -160,24 +165,24 @@ class Room {
             if (this.playerList.filter(playerData => playerData.isAI).length >= ROOM_AI_CAPACITY) break;
 
             isCreated = true;
-            const userId = Utils.getNewId(playerList);
-
-            playerList[userId] = new Player(playerList, userId, {
+            const playerData = new Player(playerList, null, {
                 socketId: null,
                 isAI: true,
-                name: userId.toUpperCase(),
                 lastTick: Player.getDefaultLastTick(),
             });
-            playerList[userId].setCurrent({
-                x: Math.ceil(Math.random() * FEED_CREATE_INIT_RANGE),
-                y: Math.ceil(Math.random() * FEED_CREATE_INIT_RANGE),
+            const playerId = playerData.id;
+            playerList[playerId] = playerData;
+
+            playerList[playerId].setCurrent({
+                x: 400, //Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE), // 
+                y: 400, //Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE), // 
                 // point: data.name.indexOf('p') === 0 ? Number(data.name.substr(1)) :0 
             })
-            this.join(playerList[userId]);
+            this.join(playerList[playerId]);
 
             sockIO.send(sockIO.to(this.id), 'new_worm', Object.assign(
-                { name: playerList[userId].name },
-                playerList[userId].myLastTick
+                { name: playerList[playerId].name },
+                playerList[playerId].myLastTick
             ));
         }
         return isCreated;
@@ -185,13 +190,44 @@ class Room {
     convertAI() {
 
     }
+    controlAI(dtms) {
+        for (let idx = 0; idx < this.playerList.length; idx++) {
+            const playerData = this.playerList[idx];
+            if (!playerData.isAI) continue;
+
+            const thatDegree = playerData.aiConf.degree;
+            if (thatDegree.timer > AI_DEGREE_CHANGE_TIME) {
+                thatDegree.timer = Math.round(Math.random() * AI_DEGREE_CHANGE_TIME / 2); // 0~1초 이내
+                // thatDegree.timer = 0;
+
+                thatDegree.dest += Math.round(Math.random() * 90) - 45; // 45도 이내 변화
+                // console.log('AI changing degree....', `${thatDegree.value} > ${thatDegree.dest}`);
+            } else {
+                thatDegree.timer += dtms;
+            }
+
+            thatDegree.value += 
+                (thatDegree.value < thatDegree.dest) ? 1 : -1;
+
+            const xV = Math.sin(thatDegree.value * Math.PI / 180) * (AI_SPEED_PER_FRAME);
+            const yV = Math.cos(thatDegree.value * Math.PI / 180) * (AI_SPEED_PER_FRAME);
+            // const yV = Math.sqrt(Math.pow((AI_SPEED_PER_FRAME), 2) -  Math.pow(xV, 2));
+
+            const data = {
+                id: playerData.id,
+                x: playerData.myLastTick.x + xV,
+                y: playerData.myLastTick.y + yV
+            };
+            playerData.setCurrent(data);
+        }
+    }
     setAIHandle(socketList, dyingSocket = null) {
         const aiList = this.playerList.filter(playerData => playerData.isAI);
         const userList = this.playerList.filter(playerData => !playerData.isAI);
         const aiCountPerUser = Math.ceil(aiList.length / (this.playerList.length - aiList.length));
 
         let aiIdx = 0;
-        console.log('userList ;leng', userList.length, aiList.length)
+        console.log('userList/aiList...', userList.length, aiList.length)
         userList.map(userData => {
             let aiCount = 0;
             // 유저당AI할당수보다 적고, 할당할 AI가 남아있을 경우
