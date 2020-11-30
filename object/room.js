@@ -2,8 +2,8 @@ const Utils = require('../object/utils.js');
 const sockIO = require('../handler/socket.js');
 const Player = require('../object/player.js');
 
-const ROOM_PLAYER_CAPACITY = 400;
-const ROOM_AI_CAPACITY = 399;
+const ROOM_PLAYER_CAPACITY = 100;
+const ROOM_AI_CAPACITY = 99;
 
 const FOOD_CAPACITY = 1000;
 const FOOD_COUNT_PER_PLAYER = 2;
@@ -174,8 +174,8 @@ class Room {
             playerList[playerId] = playerData;
 
             playerList[playerId].setCurrent({
-                x: 400, //Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE), // 
-                y: 400, //Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE), // 
+                x: Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE), // 400, //
+                y: Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE), // 400, //
                 // point: data.name.indexOf('p') === 0 ? Number(data.name.substr(1)) :0 
             })
             this.join(playerList[playerId]);
@@ -197,21 +197,45 @@ class Room {
 
             const thatDegree = playerData.aiConf.degree;
             if (thatDegree.timer > AI_DEGREE_CHANGE_TIME) {
+                if (playerData.aiConf.target === null) {
+                    const targetList = Object.values(this.foodList)
+                        .filter(foodData => 
+                            Math.abs(playerData.myLastTick.x - foodData.x) < 1000 &&
+                            Math.abs(playerData.myLastTick.y - foodData.y) < 1000
+                        );
+                    playerData.aiConf.target = targetList[Math.floor(Math.random() * targetList.length)];
+                }
                 thatDegree.timer = Math.round(Math.random() * AI_DEGREE_CHANGE_TIME / 2); // 0~1초 이내
                 // thatDegree.timer = 0;
 
-                thatDegree.dest += Math.round(Math.random() * 90) - 45; // 45도 이내 변화
+                // playerData.aiConf.target을 반영한 dest 구성
+                // ! 충돌 시 playerData.aiConf.target null 처리 필수
+                if (playerData.aiConf.target) {
+                    const targetDest = 90 - (Math.atan2(
+                        playerData.aiConf.target.y - playerData.myLastTick.y,
+                        playerData.aiConf.target.x - playerData.myLastTick.x,
+                    ) / Math.PI * 180);
+
+                    if (Math.abs(thatDegree.dest - targetDest) <= 45) {
+                        thatDegree.dest = targetDest
+                    } else {
+                        thatDegree.dest += (thatDegree.dest - targetDest > 0) ? -45 : 45;
+                    }
+                    // console.log(`set target dest(${thatDegree.target.x}/${thatDegree.target.y})`, thatDegree.dest)
+                } else {
+                    thatDegree.dest += Math.round(Math.random() * 90) - 45; // 45도 이내 변화
+                }
                 // console.log('AI changing degree....', `${thatDegree.value} > ${thatDegree.dest}`);
             } else {
                 thatDegree.timer += dtms;
             }
 
-            thatDegree.value += 
-                (thatDegree.value < thatDegree.dest) ? 1 : -1;
+            // 좌우 1도 변경을 줌
+            thatDegree.value += (thatDegree.value < thatDegree.dest) ? 1 : -1;
 
+            // Radian으로 변경해서 속도 반영
             const xV = Math.sin(thatDegree.value * Math.PI / 180) * (AI_SPEED_PER_FRAME);
             const yV = Math.cos(thatDegree.value * Math.PI / 180) * (AI_SPEED_PER_FRAME);
-            // const yV = Math.sqrt(Math.pow((AI_SPEED_PER_FRAME), 2) -  Math.pow(xV, 2));
 
             const data = {
                 id: playerData.id,
@@ -240,8 +264,8 @@ class Room {
             };
         }).forEach(({ eachSockHdlr, userId }) => { // 재분배된 AI 알림
             console.log(`할당된 AI: ${userId} > ${this.getAIHandle(userId).length}EA`);
-            sockIO.send(eachSockHdlr, 'ai', this.getAIHandle(userId));
             sockIO.send(eachSockHdlr, 'ai', []);
+            // sockIO.send(eachSockHdlr, 'ai', this.getAIHandle(userId));
         })
         if (dyingSocket) {
             sockIO.send(dyingSocket, 'ai', []);

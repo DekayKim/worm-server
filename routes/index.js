@@ -202,10 +202,8 @@ sockIO.on('connection', async (socket) => {
             // lose 웜 제거
             common.playerList[looserId].destroy(common.roomList, common.playerList);
 
-
             // food 뿌리기
             common.roomList[roomId].createWreck(amount, bodies);
-
 
             // AI가 아니라 플레이어 본인이라면 데이터 제거
             if (looserId === userId) {

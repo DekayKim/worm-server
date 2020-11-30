@@ -23,8 +23,9 @@ class Player {
                 degree: {
                     value: startDegree,
                     timer: Infinity,
-                    dest: startDegree,
-                }
+                    dest: startDegree
+                },
+                target: null
             }
         }
         
