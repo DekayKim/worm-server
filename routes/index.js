@@ -10,6 +10,10 @@ const sockIO = require('../handler/socket.js');
 const Room = require('../object/room.js');
 const Player = require('../object/player.js');
 
+const {
+    TAILING_POINT_PER_BOOST,
+    SUBTRACT_POINT_PER_BOOST
+} = require('../handler/define.js');
 
 /* GET home page. */
 router.get('/', function (req, res, next) {
@@ -39,12 +43,13 @@ sockIO.on('connection', async (socket) => {
         const data = sockIO.decode(event, args[0]);
         switch (event) {
             case 'position':
+            case 'eat':
                 break;
             case 'inbound':
                 console.log(`got ${event}: `, data.requestId, data.responseId);
                 break;
             case 'conflict':
-                console.log(`got ${event}: `, `dying player: ` + userId);
+                // console.log(`got ${event}: `, `dying player: ` + userId);
                 break;
             default:
                 console.log(`got ${event}: `, data);
@@ -53,8 +58,6 @@ sockIO.on('connection', async (socket) => {
     })
     socket.emit('schema', common.SCHEMA_LIST);
 
-    // 우선 로그인이 없으니 게스트만 허용
-    userId = Utils.getNewId(common.playerList, '', 1000); //, 'guest:');
     // socket.on("auth", function (data) {}); // console.log('auth', data);
 
 
@@ -62,11 +65,17 @@ sockIO.on('connection', async (socket) => {
     socket.on('enter', async data => {
         data = sockIO.decode('enter', data);
 
+        // 우선 로그인이 없으니 게스트만 허용
+        if (userId === null) {
+            userId = Utils.getNewId(common.playerList, '', 1000); //, 'guest:');
+        }
+
         // 이후 플레이어 생성 시작
         common.playerList[userId] = new Player(common.playerList, userId, {
             socketId,
             isAI: false,
             name: data.name,
+            color: data.color,
             lastTick: Player.getDefaultLastTick(),
         });
 
@@ -77,8 +86,8 @@ sockIO.on('connection', async (socket) => {
         );
         //! 임시 정의
         common.playerList[userId].setCurrent({
-            x: 200,
-            y: 200,
+            x: 5000,
+            y: 5000,
             point: data.name.indexOf('p') === 0 ? Number(data.name.substr(1)) :0 
         })
 
@@ -90,18 +99,24 @@ sockIO.on('connection', async (socket) => {
         sockIO.send(socket, 'enter', {
             myId: userId,
             player: Object.values(common.roomList[roomId].lastTick).map(e =>
-                Object.assign({ name: common.playerList[e.id].name}, e)
+                Object.assign({
+                    name: common.playerList[e.id].name,
+                    color: common.playerList[e.id].color
+                }, e)
             ),
-            food: Object.values(common.roomList[roomId].foodList),
+            food: Object.values(common.roomList[roomId].foodList).map(e =>
+                Object.assign({
+                    color: e.color
+                }, e.tick)
+            ),
         });
 
         // AI 할당 및 재분배 알림
         common.roomList[roomId].setAIHandle(common.socketList);
 
-        sockIO.send(sockIO.to(roomId), 'new_worm', Object.assign(
-            { name: data.name },
-            common.playerList[userId].myLastTick
-        ));
+        sockIO.send(sockIO.to(roomId), 'new_worm', Object.assign({
+            name: data.name, color: data.color
+        }, common.playerList[userId].myLastTick));
     });
     
     socket.on('bound_check', data => {
@@ -143,53 +158,56 @@ sockIO.on('connection', async (socket) => {
             // 이미 해당 food를 누군가 먹었을 경우 없던 일로 처리
             if (common.roomList[roomId].foodList[data.foodId] === undefined) return;
 
-            const foodAmount = common.roomList[roomId].foodList[data.foodId].amount;
+            const foodAmount = common.roomList[roomId].foodList[data.foodId].tick.amount;
             delete common.roomList[roomId].foodList[data.foodId];
 
-            setTimeout(() => {
-                sockIO.send(sockIO.to(roomId), 'delete_food', data.foodId);
+            sockIO.send(socket.to(roomId), 'delete_food', [data]);
 
-                // setTimeout 이후에는 해당 지렁이가 없을 수 있음
-                if (data.wormId in common.playerList) {
-                    common.playerList[data.wormId].setCurrent({
-                        point: common.playerList[data.wormId].myLastTick.point + foodAmount
-                    });
-                    
-                    sockIO.send(socket.to(roomId), 'point', {
-                        id: data.wormId,
-                        point: common.playerList[data.wormId].myLastTick.point
-                    });
-                }
-            }, 500); // 자석으로 음식 흡수하는 시간 절대값
-            
+            // setTimeout 이후에는 해당 지렁이가 없을 수 있음
+            if (data.wormId in common.playerList) {
+                common.playerList[data.wormId].setCurrent({
+                    point: common.playerList[data.wormId].myLastTick.point + foodAmount
+                });
+                
+                sockIO.send(socket.to(roomId), 'point', {
+                    id: data.wormId,
+                    point: common.playerList[data.wormId].myLastTick.point
+                });
+            }
         } catch (error) {
             console.error(error);
         }
     });
 
-    socket.on('boost', data => {
-        data = sockIO.decode('boost', data);
+    socket.on('boost_start', data => {
         if (userId === null || roomId === null) return console.warn('wrong access');
         if (!(userId in common.playerList)) return;
-        try {
-            const subtractAmount = common.roomList[roomId].createWreck('tailing', [data]);
 
-            common.playerList[userId].setCurrent({
-                point: common.playerList[userId].myLastTick.point - subtractAmount
-            });
-            
-            sockIO.send(socket.to(roomId), 'point', {
-                id: userId,
-                point: common.playerList[userId].myLastTick.point
-            });
-        } catch (error) {
-            console.error(error);
-        }
+        sockIO.send(socket.to(roomId), 'boost_start', { id: userId });
+    });
+    socket.on('boost_ing', data => {
+        data = sockIO.decode('boost_ing', data);
+        if (userId === null || roomId === null) return console.warn('wrong access');
+        if (!(userId in common.playerList)) return;
+
+        if (common.playerList[userId].myLastTick.point - SUBTRACT_POINT_PER_BOOST < 0) return;
+        
+        common.roomList[roomId].createWreck('tailing', [data], common.playerList[userId].color);
+
+        common.playerList[userId].setCurrent({
+            point: common.playerList[userId].myLastTick.point - SUBTRACT_POINT_PER_BOOST
+        });
+    });
+    socket.on('boost_end', data => {
+        if (userId === null || roomId === null) return console.warn('wrong access');
+        if (!(userId in common.playerList)) return;
+
+        sockIO.send(socket.to(roomId), 'boost_end', { id: userId });
     });
 
     socket.on('conflict', data => {
         data = sockIO.decode('conflict', data);
-        if (userId === null || roomId === null) return console.warn('wrong access', data);
+        if (userId === null || roomId === null) return console.warn('wrong access');
         if (!(data.id in common.playerList)) return;
         try {
             const looserId = data.id;
@@ -199,11 +217,11 @@ sockIO.on('connection', async (socket) => {
             // bodies 타입 체크
             if (!(bodies && bodies.constructor === Array)) return;
 
-            // lose 웜 제거
-            common.playerList[looserId].destroy(common.roomList, common.playerList);
-
             // food 뿌리기
-            common.roomList[roomId].createWreck(amount, bodies);
+            common.roomList[roomId].createWreck(amount, bodies, common.playerList[looserId].color);
+
+            // lose 웜 제거
+            common.playerList[looserId].destroy();
 
             // AI가 아니라 플레이어 본인이라면 데이터 제거
             if (looserId === userId) {
@@ -227,7 +245,7 @@ sockIO.on('connection', async (socket) => {
 
         
         // common.playerList[userId].convertAI();
-        common.playerList[userId].destroy(common.roomList, common.playerList);
+        common.playerList[userId].destroy('disconnect');
         common.roomList[roomId].setAIHandle(common.socketList); // AI 할당 및 재분배 알림
         
         delete common.socketList[socketId];

@@ -1,10 +1,13 @@
+const common = require('../handler/common.js');
 const Utils = require('../object/utils.js');
 const sockIO = require('../handler/socket.js');
 
+const AI_NAME_LIST = require('../ainame.json');
+
 const START_POINT = 0;
-const STAGE_SIZE = 100;
-const STAGE_PERCENT = 0.8;
-const STAGE_MARGIN = Math.ceil(STAGE_SIZE * (1 - STAGE_PERCENT) / 2);
+const STAGE_SIZE = 10000;
+const STAGE_PERCENT = 0.6;
+const STAGE_MARGIN = STAGE_SIZE * (1 - STAGE_PERCENT) / 2;
 
 
 class Player {
@@ -15,7 +18,11 @@ class Player {
         this._aiHandler = option._aiHandler || null;
         this.isAI = option.isAI;
         // this.roomId = option.roomId; //* room join시 입력됨
-        this.name = option.name || this.id.toUpperCase();
+        this.name = option.name ||
+            AI_NAME_LIST[Math.floor(Math.random() * AI_NAME_LIST.length)] ||
+            this.id.toUpperCase()
+        ;
+        this.color = option.color || Utils.getRandomColor();
 
         if (this.isAI) {
             const startDegree = Math.floor(Math.random() * 360);
@@ -34,9 +41,16 @@ class Player {
     }
 
     setCurrent(data) {
-        this.myLastTick.x = data.x || this.myLastTick.x;
-        this.myLastTick.y = data.y || this.myLastTick.x;
-        this.myLastTick.point = data.point || this.myLastTick.point;
+        if (data.x !== undefined) this.myLastTick.x = data.x;
+        if (data.y !== undefined) this.myLastTick.y = data.y;
+        if (data.point !== undefined) this.myLastTick.point = data.point;
+
+        if (
+            (this.myLastTick.x < 0 || this.myLastTick.x > STAGE_SIZE) ||
+            (this.myLastTick.y < 0 || this.myLastTick.y > STAGE_SIZE)
+        ) {
+            this.destroy('outmap');
+        }
     }
     static getDefaultLastTick() {
         
@@ -47,8 +61,8 @@ class Player {
             point: START_POINT
         };
     }
-    destroy(roomList, playerList) {
-        console.log(`remove '${this.id}' worm in '${this.roomId}'`);
+    destroy(cause = 'conflict') {
+        console.log(`remove(${cause}) '${this.id}' worm in '${this.roomId}'`);
         if (this.roomId !== null) {
 
             sockIO.send(
@@ -57,14 +71,11 @@ class Player {
             );
 
             // 룸 내 플레이어 정보 모두 제거
-            delete roomList[this.roomId].lastTick[this.id];
-            roomList[this.roomId].playerList.splice(
-                roomList[this.roomId].playerList.findIndex(playerData => playerData.id == this.id)
-            , 1);
+            common.roomList[this.roomId].leave(this.id, this.socketId);
         }
 
         // 플레이어 리스트 제거
-        delete playerList[this.id];
+        delete common.playerList[this.id];
     }
 }
 

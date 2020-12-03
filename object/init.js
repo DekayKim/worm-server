@@ -23,12 +23,13 @@ module.exports = function (app) {
             for (let roomId in common.roomList) {
                 common.roomList[roomId].createFood();
             }
-        }, 2000);
+        }, 10000);
 
         setInterval(() => {
             for (let roomId in common.roomList) {
                 let isCreated = common.roomList[roomId].createAI(common.playerList);
                 isCreated && common.roomList[roomId].setAIHandle(common.socketList);
+                common.roomList[roomId].cleanOldFood();
 
                 sockIO.send(
                     sockIO.to(roomId),
