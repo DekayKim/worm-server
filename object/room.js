@@ -6,21 +6,21 @@ const Food = require('../object/food.js');
 
 const {
     ONE_AI_WORM_DEBUG,
-    TAILING_POINT_PER_BOOST,
-    SUBTRACT_POINT_PER_BOOST
+    TAILING_POINT_PER_BOOST, SUBTRACT_POINT_PER_BOOST,
+    STAGE_SIZE, CREATE_FOOD_SIZE_PER_STAGE
 } = require('../handler/define.js');
+const CREATE_FOOD_MARGIN_PER_STAGE = STAGE_SIZE * (1 - CREATE_FOOD_SIZE_PER_STAGE) / 2;
 
 const ROOM_PLAYER_CAPACITY = 130;
 const ROOM_AI_CAPACITY = ONE_AI_WORM_DEBUG ? 1 : 100;
 
-const FOOD_START_CAPACITY = 1000;
-const FOOD_MIN_CAPACITY = 500;
-const FOOD_MAX_CAPACITY = 1500;
-const FOOD_COUNT_PER_PLAYER = 2;
+const FOOD_START_CAPACITY = 2000;
+const FOOD_MIN_CAPACITY = 1000;
+const FOOD_MAX_CAPACITY = 3000;
+const FOOD_COUNT_PER_PLAYER = 3;
 const FOOD_LIVE_TIME = 30 * 1000;
 
 const FOOD_CREATE_PLAYER_RANGE = 600;
-const FOOD_CREATE_MAP_RANGE = 10000;
 const FOOD_CREATE_MAX_AMOUNT = 10;
 const FOOD_PERCENT = Object.entries({
     '1': 0.2,
@@ -34,9 +34,14 @@ const FOOD_PERCENT = Object.entries({
     '9': 0.05,
     '10':0.05,
 });
-const AI_SPEED_PER_FRAME = 100 / 60; // 초당 10px
+const AI_SPEED_PER_FRAME = 200 / 60; // 초당 10px
 const AI_DEGREE_CHANGE_TIME = 1000;
-const AI_BOOST_COOLTIME = 1000;
+
+const AI_BOOST_COOLTIME = 2000;
+const AI_BOOST_CHANCE_PERCENT = 0.4;
+const AI_BOOST_MAX_MAINTAIN_TIME = 5000;
+const AI_BOOST_SPEED = AI_SPEED_PER_FRAME * 2;
+const AI_BOOST_ING_TIME = 300;
 
 
 class Room {
@@ -46,7 +51,6 @@ class Room {
         this.playerList = [];
         this.foodList = {};
 
-        // this.createAI(common.playerList);
         this.createFood(true);
     }
     static setRoom(roomList, playerList, socketList, sessionId, userObj, type) { // , roomId = null
@@ -59,7 +63,7 @@ class Room {
                 roomId = Utils.getNewId(roomList);
                 roomList[roomId] = new self(roomList, roomId, sockIO);
                 
-                roomList[roomId].createAI(playerList);
+                roomList[roomId].createAI(true);
             }
             roomList[roomId].join(userObj);
                 
@@ -142,8 +146,8 @@ class Room {
                 const foodId = Utils.getNewId(this.foodList);
                 this.foodList[foodId] = new Food(foodId, {
                     tick: {
-                        x: Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE),
-                        y: Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE),
+                        x: Math.ceil(Math.random() * STAGE_SIZE * CREATE_FOOD_SIZE_PER_STAGE) + CREATE_FOOD_MARGIN_PER_STAGE,
+                        y: Math.ceil(Math.random() * STAGE_SIZE * CREATE_FOOD_SIZE_PER_STAGE) + CREATE_FOOD_MARGIN_PER_STAGE,
                         amount: this.getFoodAmount()
                     },
                     isInit: true
@@ -163,12 +167,12 @@ class Room {
                     let deltaX = Math.ceil(Math.random() * FOOD_CREATE_PLAYER_RANGE) - FOOD_CREATE_PLAYER_RANGE / 2;
                     deltaX += (deltaX > 0) ? FOOD_CREATE_PLAYER_RANGE : -FOOD_CREATE_PLAYER_RANGE;
                     x = parseInt(x + deltaX);
-                    x = (x > FOOD_CREATE_MAP_RANGE) ? FOOD_CREATE_MAP_RANGE : (x < 0) ? 0 : x;
+                    x = (x > STAGE_SIZE) ? STAGE_SIZE : (x < 0) ? 0 : x;
 
                     let deltaY = Math.ceil(Math.random() * FOOD_CREATE_PLAYER_RANGE) - FOOD_CREATE_PLAYER_RANGE / 2;
                     deltaY += (deltaY > 0) ? FOOD_CREATE_PLAYER_RANGE : -FOOD_CREATE_PLAYER_RANGE;
                     y = parseInt(y + deltaY);
-                    y = (y > FOOD_CREATE_MAP_RANGE) ? FOOD_CREATE_MAP_RANGE : (y < 0) ? 0 : y;
+                    y = (y > STAGE_SIZE) ? STAGE_SIZE : (y < 0) ? 0 : y;
 
                     // console.log(`${playerData.myLastTick.x} > ${x} / ${playerData.myLastTick.y} > ${y}`);
 
@@ -210,61 +214,109 @@ class Room {
                 deleteList.push({ foodId: expireList[idx].id, wormId: 'n' })
                 testCounter++;
             }
-            console.log(`${expireName} remain...: ${expireList.length} (-${testCounter})`);
-
+            console.log(`${expireName} delete... remain ${Object.values(this.foodList).length}EA (-${testCounter})`);
         })
         sockIO.send(sockIO.to(this.id), 'delete_food', deleteList);
     }
 
-    createAI(playerList) {
+    createAI(isInit = false) {
+        const createList = [];
         let isCreated = false;
         for (let idx = 0; idx < ROOM_AI_CAPACITY; idx++) {
             // console.log('check AI cap.. ',
-            //     `현재 AI수: ${this.playerList.filter(playerData => playerData.isAI).length} /`,
-            //     `유저수 제한: ${this.playerList.length >= ROOM_PLAYER_CAPACITY} /`,
-            //     `AI수 제한: ${this.playerList.filter(playerData => playerData.isAI).length >= ROOM_AI_CAPACITY}`
+            //     `현재 AI수: ${this.playerList.filter(playerData => playerData.isAI).length + createList.length} /`,
+            //     `유저수 제한: ${this.playerList.length >= ROOM_PLAYER_CAPACITY + createList.length} /`,
+            //     `AI수 제한: ${this.playerList.filter(playerData => playerData.isAI).length + createList.length >= ROOM_AI_CAPACITY}`
             // )
-            if (this.playerList.length >= ROOM_PLAYER_CAPACITY) break;
-            if (this.playerList.filter(playerData => playerData.isAI).length >= ROOM_AI_CAPACITY) break;
+            if (this.playerList.length + createList.length >= ROOM_PLAYER_CAPACITY) break;
+            if (this.playerList.filter(playerData => playerData.isAI).length + createList.length >= ROOM_AI_CAPACITY) break;
 
             isCreated = true;
-            const playerData = new Player(playerList, null, {
+            const playerData = new Player(null, {
                 socketId: null,
                 isAI: true,
+                name: null,
                 lastTick: Player.getDefaultLastTick(),
             });
-            const playerId = playerData.id;
-            playerList[playerId] = playerData;
 
-            ONE_AI_WORM_DEBUG && playerList[playerId].setCurrent({
-                // x: Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE),
-                // y: Math.ceil(Math.random() * FOOD_CREATE_MAP_RANGE),
-                x: 5200,
-                y: 5200
-                // point: data.name.indexOf('p') === 0 ? Number(data.name.substr(1)) :0 
-            })
-            this.join(playerList[playerId]);
-
-            sockIO.send(sockIO.to(this.id), 'new_worm', Object.assign(
-                { name: playerList[playerId].name, color: playerList[playerId].color },
-                playerList[playerId].myLastTick
-            ));
+            createList.push(playerData);
         }
-        console.log(`생성된 AI수..: ${this.playerList.filter(playerData => playerData.isAI).length}`);
+        const delayTerm = 9900 / createList.length;
+
+        createList.forEach((playerData, idx) => {
+            let delay;
+
+            delay = idx * delayTerm;
+            setTimeout(() => {
+                playerData.initId();
+                common.playerList[playerData.id] = playerData;
+                ONE_AI_WORM_DEBUG && common.playerList[playerData.id].setCurrent({ x: 5200, y: 5200 });
+                this.join(playerData);
+                
+                sockIO.send(sockIO.to(this.id), 'new_worm', [Object.assign(
+                    { name: playerData.name, color: playerData.color, delay: 0 },
+                    playerData.myLastTick
+                )]);
+            }, delay);
+        })
+        console.log(`AI수..: ${this.playerList.filter(playerData => playerData.isAI).length} (+${createList.length})`);
         return isCreated;
     }
     convertAI() {
 
     }
     controlAI(dtms) {
-        //! 부스터 쿨타임, 발동확률, 유지시간범위랜덤
         for (let idx = 0; idx < this.playerList.length; idx++) {
             const playerData = this.playerList[idx];
             if (!playerData.isAI) continue;
 
             // 부스터 체크
-            // const thatBoost = playerData.aiConf.boost;
-            // if (thatDegree.timer > AI_DEGREE_CHANGE_TIME) {
+            const thatBoost = playerData.aiConf.boost;
+            if (!thatBoost.isRunning && thatBoost.checkTime >= Date.now()) {
+                if (
+                    playerData.myLastTick.point - SUBTRACT_POINT_PER_BOOST > 0 &&
+                    Math.random() <= AI_BOOST_CHANCE_PERCENT
+                ) { // 부스트 성공
+                    thatBoost.isRunning = true;
+                    thatBoost.dropTimer = 0;
+                    thatBoost.endTime = Date.now() + Math.round(Math.random() * AI_BOOST_MAX_MAINTAIN_TIME);
+                    sockIO.send(sockIO.to(this.id), 'boost_start', { id: playerData.id });
+                }
+
+                thatBoost.checkTime = Date.now() + AI_BOOST_COOLTIME - Math.round(Math.random() * AI_BOOST_COOLTIME * 0.2); // 쿨타임 20% 이내
+            } else {
+                thatBoost.dropTimer += dtms;
+
+                if (thatBoost.isRunning) {
+                    if (Date.now() >= thatBoost.endTime) {
+                        thatBoost.isRunning = false;
+                        thatBoost.endTime = null
+                        sockIO.send(sockIO.to(this.id), 'boost_end', { id: playerData.id });
+                    }
+                    // 드랍타이머 확인하여 드랍 또는 러닝 중지
+                    else if (thatBoost.dropTimer >= AI_BOOST_ING_TIME) {
+                        thatBoost.dropTimer = 0;
+                        
+                        if (playerData.myLastTick.point - SUBTRACT_POINT_PER_BOOST < 0) {
+                            thatBoost.isRunning = false;
+                            thatBoost.endTime = null
+                            sockIO.send(sockIO.to(this.id), 'boost_end', { id: playerData.id });
+                        } else {
+                            // 이놈을 컨트롤하는 AI핸들러가 있을 경우에만
+                            common.playerList[playerData._aiHandler] &&
+                            sockIO.send(
+                                common.socketList[common.playerList[playerData._aiHandler].socketId],
+                                'tail_position', { id: playerData.id }
+                            );
+
+                            playerData.setCurrent({
+                                point: playerData.myLastTick.point - SUBTRACT_POINT_PER_BOOST
+                            });
+                        }
+                    }
+                }
+                
+            }
 
             // 각도 정의
             const thatDegree = playerData.aiConf.degree;
@@ -284,8 +336,7 @@ class Room {
                         );
                     playerData.aiConf.target = targetList[Math.floor(Math.random() * targetList.length)];
                 }
-                thatDegree.timer = Math.round(Math.random() * AI_DEGREE_CHANGE_TIME / 2); // 0~1초 이내
-                // thatDegree.timer = 0;
+                thatDegree.timer = Math.round(Math.random() * AI_DEGREE_CHANGE_TIME * 0.5); // 쿨타임 50% 이내
 
                 // playerData.aiConf.target을 반영한 dest 구성
                 // ! 충돌 시 playerData.aiConf.target null 처리 필수
@@ -317,8 +368,9 @@ class Room {
                 0;
 
             // Radian으로 변경해서 속도 반영
-            const xV = Math.sin(thatDegree.value * Math.PI / 180) * (AI_SPEED_PER_FRAME);
-            const yV = Math.cos(thatDegree.value * Math.PI / 180) * (AI_SPEED_PER_FRAME);
+            const nowSpeed = thatBoost.isRunning ? AI_BOOST_SPEED : AI_SPEED_PER_FRAME;
+            const xV = Math.sin(thatDegree.value * Math.PI / 180) * nowSpeed;
+            const yV = Math.cos(thatDegree.value * Math.PI / 180) * nowSpeed;
 
             const data = {
                 id: playerData.id,

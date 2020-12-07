@@ -27,7 +27,7 @@ module.exports = function (app) {
 
         setInterval(() => {
             for (let roomId in common.roomList) {
-                let isCreated = common.roomList[roomId].createAI(common.playerList);
+                let isCreated = common.roomList[roomId].createAI();
                 isCreated && common.roomList[roomId].setAIHandle(common.socketList);
                 common.roomList[roomId].cleanOldFood();
 

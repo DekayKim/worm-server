@@ -42,7 +42,11 @@ sockIO.on('connection', async (socket) => {
     socket.prependAny((event, ...args) => {
         const data = sockIO.decode(event, args[0]);
         switch (event) {
+            case 'boost_start':
+            case 'boost_ing':
+            case 'boost_end':
             case 'position':
+            case 'tail_position':
             case 'eat':
                 break;
             case 'inbound':
@@ -71,7 +75,7 @@ sockIO.on('connection', async (socket) => {
         }
 
         // 이후 플레이어 생성 시작
-        common.playerList[userId] = new Player(common.playerList, userId, {
+        common.playerList[userId] = new Player(userId, {
             socketId,
             isAI: false,
             name: data.name,
@@ -86,8 +90,8 @@ sockIO.on('connection', async (socket) => {
         );
         //! 임시 정의
         common.playerList[userId].setCurrent({
-            x: 5000,
-            y: 5000,
+            x: 15000,
+            y: 15000,
             point: data.name.indexOf('p') === 0 ? Number(data.name.substr(1)) :0 
         })
 
@@ -109,14 +113,16 @@ sockIO.on('connection', async (socket) => {
                     color: e.color
                 }, e.tick)
             ),
+            rank: [] //!!
         });
 
         // AI 할당 및 재분배 알림
         common.roomList[roomId].setAIHandle(common.socketList);
 
-        sockIO.send(sockIO.to(roomId), 'new_worm', Object.assign({
-            name: data.name, color: data.color
-        }, common.playerList[userId].myLastTick));
+        sockIO.send(sockIO.to(roomId), 'new_worm', [Object.assign(
+            { name: data.name, color: data.color, delay: 0 },
+            common.playerList[userId].myLastTick
+        )]);
     });
     
     socket.on('bound_check', data => {
@@ -146,6 +152,14 @@ sockIO.on('connection', async (socket) => {
         //! 업데이트 검증 필요함
 
         common.playerList[data.id].setCurrent(data);
+    });
+
+    socket.on('tail_position', data => {
+        data = sockIO.decode('tail_position', data);
+        if (userId === null || roomId === null) return console.warn('wrong access');
+        if (!(data.id in common.playerList)) return;
+
+        common.roomList[roomId].createWreck('tailing', [data], common.playerList[data.id].color);
     });
 
     socket.on('eat', data => {

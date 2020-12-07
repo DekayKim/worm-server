@@ -22,8 +22,9 @@ data {
 ``` js
     data: {
         myId: id,
-        player: [{ name, id, isAI, x, y, point }, ...],
+        player: [{ name, color, id, isAI, x, y, point }, ...],
         food: [{ id, x, y, amount }, ...]
+        rank: [ id, ... ]
     }
 ```
 ## reset
@@ -36,7 +37,7 @@ data {
 ## new_worm
 - 신규 유저 최초 게임 시작시 수신 (자신의 정보도 수신함)
 ``` js
-    data: { name, id, x, y, point }
+    data: { name, color, id, x, y, point }
 ```
 ## delete_worm
 - 죽은 지렁이 제거
@@ -54,6 +55,11 @@ data: id
 ``` js
     data: [{ id, x, y }, ...]
 ```
+## tail_position
+- 마지막 body 정보 요청
+``` js
+    data: { id }
+```
 ## point
 - 자신이 컨트롤하는 지렁이 point 송신
 ``` js
@@ -63,12 +69,12 @@ data: id
 ## new_food
 - 신규 음식 생성시 수신
 ``` js
-    data: { id, x, y, amount }
+    data: [{ id, x, y, amount }, ...]
 ```
 ## delete_food
 - 음식 삭제
 ``` js
-    data: id
+    data: [id]
 ```
 
 ## bound_check
@@ -88,18 +94,39 @@ data: { requestId, responseId, bodies }
 ``` js
 data: [{ x, y }, ...]
 ```
+## boost_start
+- 부스트 시작
+``` js
+    data: { id }
+```
+## boost_end
+- 부스트 중단
+``` js
+    data: { id }
+```
+
+## rank
+``` js
+    data: [ id, ... ]
+```
+
+
 ***
+
 
 # 클라이언트 송신
 ## enter
 - 게임 시작시 송신
 ``` js
-    data: {
-        name: "닉네임"
-    }
+    data: { name, color }
 ```
 ## position
 - 자신이 컨트롤하는 지렁이 좌표 송신
+``` js
+    data: { id, x, y }
+```
+## tail_position
+- 마지막 body 정보 응답
 ``` js
     data: { id, x, y }
 ```
@@ -108,12 +135,6 @@ data: [{ x, y }, ...]
 ``` js
     data: { wormId, foodId }
 ```
-## boost
-- 뱉으면서 달림
-``` js
-    data: { x, y }
-```
-
 ## bound_check
 - **내 주변 지렁이 친구들 누구누구 있어?** 라고 물어보기
 ``` js
@@ -131,3 +152,26 @@ data: { requestId, responseId, bodies }
 ``` js
 data: { id, looserBodies }
 ```
+
+## boost_start
+- 부스트 시작
+``` js
+    data: null
+```
+## boost_ing
+- 부스트 진행하면서 생기는 음식 좌표 전달
+``` js
+    data: { x, y }
+```
+## boost_end
+- 부스트 중단
+``` js
+    data: null
+```
+
+
+- AI 부활 한번에 시키지 않기
+- AI 부스터 사용시 미비사항 :음식 떨구고 포인트 까고, 포인트 없으면 애초에 실행시키지 않고...
+- 랭킹 저장, 랭킹 변경때 보내주는 작업
+- DB에 토탈랭킹 저장하기
+- 계정 연동하기
