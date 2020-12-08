@@ -51,6 +51,8 @@ class Room {
         this.playerList = [];
         this.foodList = {};
         this.rank = [];
+
+        this.resvCount = 0;
     }
     static setRoom(roomList, playerList, socketList, sessionId, userObj, type) { // , roomId = null
         return new Promise(async function (resolve, reject) { try {
@@ -217,15 +219,16 @@ class Room {
     createAI(isInit = false) {
         const createList = [];
         let isCreated = false;
+
         for (let idx = 0; idx < ROOM_AI_CAPACITY; idx++) {
-            //! 빠르게 두명 접속할 경우 createList가 0이라서 더만듬...createList 임시저장필요
             // console.log('check AI cap.. ',
-            //     `현재 AI수: ${this.playerList.filter(playerData => playerData.isAI).length + createList.length} /`,
-            //     `유저수 제한: ${this.playerList.length >= ROOM_PLAYER_CAPACITY + createList.length} /`,
-            //     `AI수 제한: ${this.playerList.filter(playerData => playerData.isAI).length + createList.length >= ROOM_AI_CAPACITY}`
+            //     `현재 AI수: ${this.playerList.filter(playerData => playerData.isAI).length} /`,
+            //     `현재 예약수: ${this.resvCount} /`,
+            //     `유저수 제한: ${this.playerList.length + this.resvCount > ROOM_PLAYER_CAPACITY} /`,
+            //     `AI수 제한: ${this.playerList.filter(playerData => playerData.isAI).length + this.resvCount > ROOM_AI_CAPACITY}`
             // )
-            if (this.playerList.length + createList.length >= ROOM_PLAYER_CAPACITY) break;
-            if (this.playerList.filter(playerData => playerData.isAI).length + createList.length >= ROOM_AI_CAPACITY) break;
+            if (this.playerList.length + this.resvCount >= ROOM_PLAYER_CAPACITY) break;
+            if (this.playerList.filter(playerData => playerData.isAI).length + this.resvCount >= ROOM_AI_CAPACITY) break;
 
             isCreated = true;
             const playerData = new Player(null, {
@@ -236,6 +239,7 @@ class Room {
             });
 
             createList.push(playerData);
+            this.resvCount++
         }
         const delayTerm = 9900 / createList.length;
 
@@ -256,9 +260,10 @@ class Room {
                     )],
                     { roomId: this.id }
                 );
+                this.resvCount--;
             }, delay);
         })
-        console.log(`AI수..: ${this.playerList.filter(playerData => playerData.isAI).length} (+${createList.length})`);
+        console.log(`AI add: ${this.playerList.filter(playerData => playerData.isAI).length} (+${this.resvCount})`);
         return isCreated;
     }
     convertAI() {
