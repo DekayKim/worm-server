@@ -50,6 +50,7 @@ class Room {
         this.lastTick = {};
         this.playerList = [];
         this.foodList = {};
+        this.rank = [];
 
         this.createFood(true);
     }
@@ -223,6 +224,7 @@ class Room {
         const createList = [];
         let isCreated = false;
         for (let idx = 0; idx < ROOM_AI_CAPACITY; idx++) {
+            //! 빠르게 두명 접속할 경우 createList가 0이라서 더만듬...createList 임시저장필요
             // console.log('check AI cap.. ',
             //     `현재 AI수: ${this.playerList.filter(playerData => playerData.isAI).length + createList.length} /`,
             //     `유저수 제한: ${this.playerList.length >= ROOM_PLAYER_CAPACITY + createList.length} /`,
@@ -388,6 +390,10 @@ class Room {
         let aiIdx = 0;
         // console.log('userList/aiList...', userList.length, aiList.length)
         userList.map(userData => {
+            // if (userData.name == 'Ddd') return {
+            //     eachSockHdlr: socketList[userData.socketId],
+            //     userId: userData.id
+            // } ;
             let aiCount = 0;
             // 유저당AI할당수보다 적고, 할당할 AI가 남아있을 경우
             while (aiCount++ < aiCountPerUser &&  aiIdx < aiList.length) {
@@ -413,6 +419,22 @@ class Room {
             .map(playerData => playerData.id)
         ;
     }
+
+    // checkRank() {
+    //     let nowRank = Object.values(this.lastTick)
+    //         .sort((a, b) => a.point < b.point ? 1 : -1)
+    //         .map(e => [e.id, e.point]).filter((e,i) => i < 10)
+    //     ;
+
+    //     for (let idx = 0; idx < this.rank.length; idx++) {
+    //         if (this.rank[idx] !== nowRank[idx][0]) {
+    //             // console.log('!!!!!!!!!!!!!!rank change', JSON.stringify(nowRank))
+    //             sockIO.send(sockIO.to(this.id), 'rank', nowRank.map(e => e[0]));
+    //             break;
+    //         };
+    //     }
+    //     this.rank = nowRank.map(e => e[0]);
+    // }
 
 }
 

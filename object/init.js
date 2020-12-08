@@ -21,19 +21,13 @@ module.exports = function (app) {
 
         setInterval(() => {
             for (let roomId in common.roomList) {
-                common.roomList[roomId].createFood();
-            }
-        }, 10000);
-
-        setInterval(() => {
-            for (let roomId in common.roomList) {
                 let isCreated = common.roomList[roomId].createAI();
                 isCreated && common.roomList[roomId].setAIHandle(common.socketList);
+
+                common.roomList[roomId].createFood();
                 common.roomList[roomId].cleanOldFood();
 
-                sockIO.send(
-                    sockIO.to(roomId),
-                    'map',
+                sockIO.send(sockIO.to(roomId), 'map',
                     Object.values(common.roomList[roomId].lastTick).map(e => {return { x: e.x, y: e.y }})
                 );
             }

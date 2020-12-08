@@ -64,6 +64,8 @@ class Player {
             (this.myLastTick.y < 0 || this.myLastTick.y > STAGE_SIZE)
         ) {
             this.destroy('outmap');
+        // } else if (data.point) {
+        //     common.roomList[this.roomId].checkRank();
         }
     }
     static getDefaultLastTick() {

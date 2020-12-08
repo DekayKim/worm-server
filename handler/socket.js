@@ -1,5 +1,6 @@
 var io = require('socket.io')();
 var sp = require('schemapack');
+// var msgpack = require('msgpack5')();
 // sp.setStringEncoding('ascii');
 
 const common = require('../handler/common.js');
@@ -72,7 +73,8 @@ io.send = function(sockHdlr, eventName, data) {
     try {
         sockHdlr.emit(
             eventName,
-            // data,
+            // data
+            // msgpack.encode(data)
             SCHEMA_BUILD.S2C[eventName].encode(data)
         );
     } catch (error) {
@@ -84,6 +86,7 @@ io.send = function(sockHdlr, eventName, data) {
 io.decode = function(eventName, dataBuffer) {
     try {
         // return dataBuffer;
+        // return msgpack.decode(dataBuffer)
         if (SCHEMA_BUILD.C2S[eventName]) {
             return SCHEMA_BUILD.C2S[eventName].decode(dataBuffer);
         } else {
