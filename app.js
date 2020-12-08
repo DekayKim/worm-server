@@ -66,6 +66,6 @@ app.use(function(err, req, res, next) {
 var startAsyncInit = require('./object/init.js');
 // module.exports = app;
 module.exports = startAsyncInit(app).then((result) => {
-  console.log("[ROR] Initial value setup");
+  console.log("[WORMIO] Initial value setup");
   return app;
 });

@@ -1,6 +1,9 @@
-var io = require('socket.io')();
+// var io = require('socket.io')();
+const WebSocket = require("ws");
+var io = io || {};
+
 var sp = require('schemapack');
-// var msgpack = require('msgpack5')();
+var msgpack = require('msgpack5')();
 // sp.setStringEncoding('ascii');
 
 const common = require('../handler/common.js');
@@ -69,14 +72,33 @@ const SCHEMA_BUILD = {
     )
 }
 
-io.send = function(sockHdlr, eventName, data) {
+io.send = function(eventName, data, options) {
+    options = Object.assign({
+        mysock: null,
+        roomId: null
+    }, options);
+
     try {
-        sockHdlr.emit(
-            eventName,
+        const sendData = 
             // data
-            // msgpack.encode(data)
-            SCHEMA_BUILD.S2C[eventName].encode(data)
-        );
+            msgpack.encode([eventName, data])
+            // SCHEMA_BUILD.S2C[eventName].encode(data)
+        ;
+
+        if (options.mysock && options.roomId === null) {
+            options.mysock.readyState === WebSocket.OPEN &&
+            options.mysock.send(sendData);
+        } else if (options.roomId) {
+            let sendList = common.roomList[options.roomId].playerList;
+                for (let idx = 0; idx < sendList.length; idx++) {
+                    if (sendList[idx].socketId === null) continue; // AI 제외
+                    const eachSock = common.socketList[sendList[idx].socketId];
+
+                    eachSock !== options.mysock && // mysock null = 모든 유저
+                    eachSock.readyState === WebSocket.OPEN &&
+                    eachSock.send(sendData);
+                }
+        }
     } catch (error) {
         console.error(error);
         console.warn(eventName, data);
@@ -85,8 +107,8 @@ io.send = function(sockHdlr, eventName, data) {
 
 io.decode = function(eventName, dataBuffer) {
     try {
-        // return dataBuffer;
-        // return msgpack.decode(dataBuffer)
+        return msgpack.decode(dataBuffer)
+        return dataBuffer;
         if (SCHEMA_BUILD.C2S[eventName]) {
             return SCHEMA_BUILD.C2S[eventName].decode(dataBuffer);
         } else {
@@ -98,5 +120,26 @@ io.decode = function(eventName, dataBuffer) {
     }
 }
 
+io.attach = function(server, options) { // socketIO 호환
+    // io.wss = new WebSocket.Server({ port: 3638 });
+    io.wss = new WebSocket.Server({ server });
+
+    io._onResvList.forEach(([eventName, eventFn]) => {
+        io.wss.on(eventName, eventFn);
+    });
+}
+
+io._onResvList = [];
+io.on = function(eventName, eventFn) {
+    if (io.wss) { // attach 되어있으면 직접 on
+        io.wss.on(eventName, eventFn);
+    } else {
+        io._onResvList.push([eventName, eventFn]);
+    }
+}
+
+// io.to = function(roomId) {
+//     return common.roomList[roomId].playerList.map(e => common.socketList[e.socketId]);
+// }
 
 module.exports = io;

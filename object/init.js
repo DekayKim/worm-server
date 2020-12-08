@@ -27,8 +27,9 @@ module.exports = function (app) {
                 common.roomList[roomId].createFood();
                 common.roomList[roomId].cleanOldFood();
 
-                sockIO.send(sockIO.to(roomId), 'map',
-                    Object.values(common.roomList[roomId].lastTick).map(e => {return { x: e.x, y: e.y }})
+                sockIO.send('map',
+                    Object.values(common.roomList[roomId].lastTick).map(e => {return { x: e.x, y: e.y }}),
+                    { roomId }
                 );
             }
         }, 10000);
@@ -37,9 +38,9 @@ module.exports = function (app) {
             for (let roomId in common.roomList) {
                 common.roomList[roomId].controlAI(16);
                 
-                sockIO.send(
-                    sockIO.to(roomId), 'position_all',
-                    Object.values(common.roomList[roomId].lastTick)
+                sockIO.send('position_all',
+                    Object.values(common.roomList[roomId].lastTick),
+                    { roomId }
                 );
             }
         }, 16);

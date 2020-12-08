@@ -30,7 +30,7 @@ const utils = new function() {
         if (ip.substr(0, 7) == "::ffff:") ip = ip.substr(7);
 
         if (allowIP.indexOf(ip) === -1) {
-            console.warn(`[ROR] access Deny from ${ip}`);
+            console.warn(`[WORMIO] access Deny from ${ip}`);
             return false;
         } else {
             return true;

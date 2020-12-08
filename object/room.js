@@ -51,8 +51,6 @@ class Room {
         this.playerList = [];
         this.foodList = {};
         this.rank = [];
-
-        this.createFood(true);
     }
     static setRoom(roomList, playerList, socketList, sessionId, userObj, type) { // , roomId = null
         return new Promise(async function (resolve, reject) { try {
@@ -64,12 +62,11 @@ class Room {
                 roomId = Utils.getNewId(roomList);
                 roomList[roomId] = new self(roomList, roomId, sockIO);
                 
+                roomList[roomId].createFood(true);                
                 roomList[roomId].createAI(true);
             }
             roomList[roomId].join(userObj);
-                
-            socketList[sessionId].join(roomId);
-    
+
             resolve(roomId);
         } catch (error) {
             reject(error);
@@ -99,9 +96,6 @@ class Room {
         let idx = this.playerList.findIndex(playerData => playerData.id == userId);
         if (idx === -1) console.error('not found worm in room_playerList: ', userId)
         this.playerList.splice(idx, 1);
-
-        // AI는 null임
-        userSocketId && common.socketList[userSocketId].leave(this.id);
     }
 
     getFoodAmount() {
@@ -134,7 +128,7 @@ class Room {
                 color: this.foodList[foodId].color
             }, this.foodList[foodId].tick));
         }
-        sockIO.send(sockIO.to(this.id), 'new_food', createList);
+        sockIO.send('new_food', createList, { roomId: this.id });
         // console.log(`Wreck: ${Object.keys(this.foodList).length} (+${createCount})`);
     }
 
@@ -188,7 +182,7 @@ class Room {
                 }
             })
         }
-        sockIO.send(sockIO.to(this.id), 'new_food', createList);
+        sockIO.send('new_food', createList, { roomId: this.id });
         console.log(`Food: ${Object.keys(this.foodList).length} (+${createCount})`);
     }
     cleanOldFood() {
@@ -217,7 +211,7 @@ class Room {
             }
             console.log(`${expireName} delete... remain ${Object.values(this.foodList).length}EA (-${testCounter})`);
         })
-        sockIO.send(sockIO.to(this.id), 'delete_food', deleteList);
+        sockIO.send('delete_food', deleteList, { roomId: this.id });
     }
 
     createAI(isInit = false) {
@@ -255,10 +249,13 @@ class Room {
                 ONE_AI_WORM_DEBUG && common.playerList[playerData.id].setCurrent({ x: 5200, y: 5200 });
                 this.join(playerData);
                 
-                sockIO.send(sockIO.to(this.id), 'new_worm', [Object.assign(
-                    { name: playerData.name, color: playerData.color, delay: 0 },
-                    playerData.myLastTick
-                )]);
+                sockIO.send('new_worm',
+                    [Object.assign(
+                        { name: playerData.name, color: playerData.color, delay: 0 },
+                        playerData.myLastTick
+                    )],
+                    { roomId: this.id }
+                );
             }, delay);
         })
         console.log(`AI수..: ${this.playerList.filter(playerData => playerData.isAI).length} (+${createList.length})`);
@@ -282,7 +279,7 @@ class Room {
                     thatBoost.isRunning = true;
                     thatBoost.dropTimer = 0;
                     thatBoost.endTime = Date.now() + Math.round(Math.random() * AI_BOOST_MAX_MAINTAIN_TIME);
-                    sockIO.send(sockIO.to(this.id), 'boost_start', { id: playerData.id });
+                    sockIO.send('boost_start', { id: playerData.id }, { roomId: this.id });
                 }
 
                 thatBoost.checkTime = Date.now() + AI_BOOST_COOLTIME - Math.round(Math.random() * AI_BOOST_COOLTIME * 0.2); // 쿨타임 20% 이내
@@ -293,7 +290,7 @@ class Room {
                     if (Date.now() >= thatBoost.endTime) {
                         thatBoost.isRunning = false;
                         thatBoost.endTime = null
-                        sockIO.send(sockIO.to(this.id), 'boost_end', { id: playerData.id });
+                        sockIO.send('boost_end', { id: playerData.id }, { roomId: this.id });
                     }
                     // 드랍타이머 확인하여 드랍 또는 러닝 중지
                     else if (thatBoost.dropTimer >= AI_BOOST_ING_TIME) {
@@ -302,13 +299,13 @@ class Room {
                         if (playerData.myLastTick.point - SUBTRACT_POINT_PER_BOOST < 0) {
                             thatBoost.isRunning = false;
                             thatBoost.endTime = null
-                            sockIO.send(sockIO.to(this.id), 'boost_end', { id: playerData.id });
+                            sockIO.send('boost_end', { id: playerData.id }, { roomId: this.id });
                         } else {
                             // 이놈을 컨트롤하는 AI핸들러가 있을 경우에만
                             common.playerList[playerData._aiHandler] &&
-                            sockIO.send(
-                                common.socketList[common.playerList[playerData._aiHandler].socketId],
-                                'tail_position', { id: playerData.id }
+                            sockIO.send('tail_position',
+                                { id: playerData.id },
+                                { mysock: common.socketList[common.playerList[playerData._aiHandler].socketId] }
                             );
 
                             playerData.setCurrent({
@@ -405,11 +402,11 @@ class Room {
             };
         }).forEach(({ eachSockHdlr, userId }) => { // 재분배된 AI 알림
             // console.log(`할당된 AI: ${userId} > ${this.getAIHandle(userId).length}EA`);
-            // sockIO.send(eachSockHdlr, 'ai', []);
-            sockIO.send(eachSockHdlr, 'ai', this.getAIHandle(userId));
+            // sockIO.send('ai', [], { mysock: eachSockHdlr });
+            sockIO.send('ai', this.getAIHandle(userId), { mysock: eachSockHdlr });
         })
         if (dyingSocket) {
-            sockIO.send(dyingSocket, 'ai', []);
+            sockIO.send('ai', [], { mysock: dyingSocket });
         }
         // console.log('setAIHandle 종료')
     }

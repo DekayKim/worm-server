@@ -81,10 +81,7 @@ class Player {
         // console.log(`remove(${cause}) '${this.id}' worm in '${this.roomId}'`);
         if (this.roomId !== null) {
 
-            sockIO.send(
-                sockIO.to(this.roomId),
-                'delete_worm', this.id
-            );
+            sockIO.send('delete_worm', this.id, { roomId: this.roomId });
 
             // 룸 내 플레이어 정보 모두 제거
             common.roomList[this.roomId].leave(this.id, this.socketId);

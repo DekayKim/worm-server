@@ -12,7 +12,7 @@ class Redis {
         this.client = redis.createClient(config);
         this.client.auth("ziplab!DekayKim#12345679@150105$");
         this.client.on('error', function (err) {
-            console.log('[ROR] Redis error: ' + err);
+            console.log('[WORMIO] Redis error: ' + err);
         });
 
         this.store = new redisStore({
@@ -41,7 +41,7 @@ class Redis {
 
             this.store.get(common.sessList[userNo], (err, sess) => {
                 if (err) {
-                    console.log('[ROR] No UID in session');
+                    console.log('[WORMIO] No UID in session');
                     return reject(false);
                 }
 
@@ -65,7 +65,7 @@ class Redis {
             console.log(common.sessList[userNo])
             this.store.get(common.sessList[userNo], (err, sess) => {
                 if (err) {
-                    console.log('[ROR] No UID in session');
+                    console.log('[WORMIO] No UID in session');
                     return reject(false);
                 }
 

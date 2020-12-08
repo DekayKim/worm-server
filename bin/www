@@ -39,7 +39,7 @@ app.then(app => {
 
   server.on('error', onError);
   server.on('listening', onListening);
-  console.log(`[ROR] Running Server HTTP on ${port}`);
+  console.log(`[WORMIO] Running Server HTTP on ${port}`);
 
   io.attach(server, {
     cors: {
