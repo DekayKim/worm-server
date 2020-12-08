@@ -2,6 +2,9 @@ const common = require('../handler/common.js');
 const Utils = require('../object/utils.js');
 const sockIO = require('../handler/socket.js');
 
+var mysql = require('../handler/mysql.js');
+mysql = new mysql(common.setting.dbconfig);
+
 const {
     STAGE_SIZE,
     CREATE_PLAYER_SIZE_PER_STAGE
@@ -89,6 +92,35 @@ class Player {
 
         // 플레이어 리스트 제거
         delete common.playerList[this.id];
+    }
+    static setRank(userIdx, name, point) {
+        return new Promise(async function (resolve, reject) {
+            let q, v;
+
+            let savedRank = await mysql.query(`
+                SELECT * FROM rank WHERE userIdx = ?;
+            `, [userIdx], { isReturnedOne: true });
+
+            if (savedRank) {
+                q = `UPDATE rank SET point = ? WHERE userIdx = ?;`
+                v = [point, userIdx];
+            } else {
+                q = `INSERT INTO rank(userIdx, name, point) VALUES (?, ?, ?);`
+                v = [userIdx, name, point];
+            }
+            await mysql.query(q, v);
+            
+            const rtnObj = (await mysql.query(`
+                SELECT * FROM rank ORDER BY point DESC limit 10;
+            `)).map((rtn, idx) => {
+                return {
+                    rank: idx + 1,
+                    name: rtn.name,
+                    point: rtn.point
+                }
+            });
+            resolve(rtnObj);
+        })
     }
 }
 

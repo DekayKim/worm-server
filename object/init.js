@@ -5,19 +5,9 @@ const schedule = require('node-schedule');
 
 const common = require('../handler/common.js');
 const sockIO = require('../handler/socket.js');
-// const redis = require('../handler/redis.js');
-
-const Utils = require('../object/utils.js');
-const Room = require('../object/room.js');
-const Player = require('../object/player.js');
 
 module.exports = function (app) {
     return new Promise(async function (resolve, reject) {
-        // common.roomList[Utils.getNewId(common.roomList)] = new Room(common.roomList);
-
-        // await Guild.init();
-        // schedule.scheduleJob('* * * * * *', async function() { // sec/min/hour/day/month/week
-        // });
 
         setInterval(() => {
             for (let roomId in common.roomList) {

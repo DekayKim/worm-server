@@ -253,6 +253,7 @@ class Room {
                 ONE_AI_WORM_DEBUG && common.playerList[playerData.id].setCurrent({ x: 5200, y: 5200 });
                 this.join(playerData);
                 
+                this.setAIHandle(common.socketList);
                 sockIO.send('new_worm',
                     [Object.assign(
                         { name: playerData.name, color: playerData.color, delay: 0 },

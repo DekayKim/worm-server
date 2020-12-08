@@ -10,7 +10,7 @@ class Redis {
             port: 6379
         };
         this.client = redis.createClient(config);
-        this.client.auth("ziplab!DekayKim#12345679@150105$");
+        this.client.auth("something");
         this.client.on('error', function (err) {
             console.log('[WORMIO] Redis error: ' + err);
         });
@@ -20,7 +20,7 @@ class Redis {
             ttl: 3600 * 24
         });
         this.session = session({
-            secret: '!!ZIP-LAB@#',
+            secret: 'something',
             store: this.store,
             resave: false,
             saveUninitialized: true,

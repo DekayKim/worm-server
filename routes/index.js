@@ -222,6 +222,7 @@ sockIO.on('connection', async (socket) => {
                     const looserId = data.id;
                     const bodies = data.looserBodies;
                     const amount = common.playerList[looserId].myLastTick.point;
+                    const userName = common.playerList[looserId].name; // userIdx 있을 경우 setRank를 위해
 
                     // bodies 타입 체크
                     if (!(bodies && bodies.constructor === Array)) return;
@@ -234,6 +235,12 @@ sockIO.on('connection', async (socket) => {
 
                     // AI가 아니라 플레이어 본인이라면 데이터 제거
                     if (looserId === userId) {
+                        // 로그인 상태라면 랭킹 등록
+                        if (userIdx !== null) {
+                            let totalRank = Player.setRank(userIdx, userName, amount);
+                            sockIO.send('rank', totalRank, { mysock: socket });
+                        }
+
                         // AI 할당 및 재분배 알림
                         common.roomList[roomId].setAIHandle(common.socketList, socket);
 
