@@ -88,10 +88,7 @@ sockIO.on('connection', async (socket) => {
                 });
 
                 // 룸 세팅 (join)
-                roomId = await Room.setRoom(
-                    common.roomList, common.playerList, common.socketList,
-                    socketId, common.playerList[userId], 'game'
-                );
+                roomId = await Room.setRoom(common.playerList[userId], 'game');
                 //! 임시 정의
                 common.playerList[userId].setCurrent({
                     x: 15000,

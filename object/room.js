@@ -45,8 +45,8 @@ const AI_BOOST_ING_TIME = 300;
 
 
 class Room {
-    constructor(roomList, id) {
-        this.id = id || Utils.getNewId(roomList);
+    constructor(id) {
+        this.id = id || Utils.getNewId(common.roomList);
         this.lastTick = {};
         this.playerList = [];
         this.foodList = {};
@@ -54,20 +54,20 @@ class Room {
 
         this.resvCount = 0;
     }
-    static setRoom(roomList, playerList, socketList, sessionId, userObj, type) { // , roomId = null
+    static setRoom(userObj, type) { // , roomId = null
         return new Promise(async function (resolve, reject) { try {
-            let roomId = self.getNotFull(roomList);
+            let roomId = self.getNotFull();
             // if (ONE_AI_WORM_DEBUG) roomId = false; // 매번 새로운 방 생성
     
             if (roomId === false) {
                 console.log("creating room...");
-                roomId = Utils.getNewId(roomList);
-                roomList[roomId] = new self(roomList, roomId, sockIO);
+                roomId = Utils.getNewId(common.roomList);
+                common.roomList[roomId] = new self(roomId, sockIO);
                 
-                roomList[roomId].createFood(true);                
-                roomList[roomId].createAI(true);
+                common.roomList[roomId].createFood(true);                
+                common.roomList[roomId].createAI(true);
             }
-            roomList[roomId].join(userObj);
+            common.roomList[roomId].join(userObj);
 
             resolve(roomId);
         } catch (error) {
@@ -75,8 +75,8 @@ class Room {
         }})
     }
 
-    static getNotFull(roomList) {
-        const roomEntry = Object.entries(roomList)
+    static getNotFull() {
+        const roomEntry = Object.entries(common.roomList)
             .find(([roomId, roomData]) => 
                 roomData.playerList.filter(playerData => !playerData.isAI).length <
                 ROOM_PLAYER_CAPACITY - ROOM_AI_CAPACITY
@@ -92,7 +92,7 @@ class Room {
         this.lastTick[playerObj.id] = playerObj.myLastTick;
     }
 
-    leave(userId, userSocketId) {
+    leave(userId) {
         delete this.lastTick[userId];
 
         let idx = this.playerList.findIndex(playerData => playerData.id == userId);
