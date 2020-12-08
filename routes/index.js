@@ -30,6 +30,7 @@ router.get('/api', function (req, res, next) {
     });
 });
 
+
 //* socket
 sockIO.on('connection', async (socket) => {
     let socketId = Utils.getNewId(common.socketList); // socket.id;
@@ -44,7 +45,6 @@ sockIO.on('connection', async (socket) => {
 
     socket.on('message', async (message) => {
         [eventName, data] = sockIO.decode(null, message);
-
 
         //* Message Log
         switch (eventName) {
@@ -69,6 +69,28 @@ sockIO.on('connection', async (socket) => {
                 break;
         }
 
+        //* Value check
+        if (['enter'].includes(eventName) === false) {
+            if (userId === null || roomId === null) return;
+        }
+        switch (eventName) {
+            case 'inbound':
+                if (!(data.requestId in common.playerList)) return;
+                break;
+            case 'position':
+            case 'boost_start':
+            case 'boost_ing':
+            case 'boost_end':
+                if (!(userId in common.playerList)) return `no-act pos ${userId}`;
+                break;
+            case 'tail_position':
+            case 'conflict':
+                if (!(data.id in common.playerList)) return;
+                break;
+            case 'eat':
+                if (!(data.wormId in common.playerList)) return;
+                break;
+        }
 
         //* Event Split
         switch (eventName) {
@@ -130,39 +152,26 @@ sockIO.on('connection', async (socket) => {
                 break;
 
             case 'bound_check':
-                if (userId === null || roomId === null) return console.warn('wrong access', data);
-
                 sockIO.send('bound_check', data, { roomId, mysock: socket });
                 break;
 
             case 'inbound':
-                if (userId === null || roomId === null) return console.warn('wrong access', data);
-                if (!(data.requestId in common.playerList)) return;
-
                 sockIO.send('inbound', data,
                     { mysock: common.socketList[common.playerList[data.requestId].socketId] }
                 );
                 break;
 
             case 'position':
-                if (userId === null || roomId === null) return;//  console.warn('wrong access', data);
-                if (!(userId in common.playerList)) return `no-act pos ${userId}`;
-
                 //! 업데이트 검증 필요함
 
                 common.playerList[data.id].setCurrent(data);
                 break;
 
             case 'tail_position':
-                if (userId === null || roomId === null) return console.warn('wrong access');
-                if (!(data.id in common.playerList)) return;
-
                 common.roomList[roomId].createWreck('tailing', [data], common.playerList[data.id].color);
                 break;
 
             case 'eat':
-                if (userId === null || roomId === null) return console.warn('wrong access');
-                if (!(data.wormId in common.playerList)) return;
                 try {
                     //! 업데이트 검증 필요함
 
@@ -191,16 +200,10 @@ sockIO.on('connection', async (socket) => {
                 break;
 
             case 'boost_start':
-                if (userId === null || roomId === null) return console.warn('wrong access');
-                if (!(userId in common.playerList)) return;
-
                 sockIO.send('boost_start', { id: userId }, { roomId, mysock: socket });
                 break;
 
             case 'boost_ing':
-                if (userId === null || roomId === null) return console.warn('wrong access');
-                if (!(userId in common.playerList)) return;
-
                 if (common.playerList[userId].myLastTick.point - SUBTRACT_POINT_PER_BOOST < 0) return;
 
                 common.roomList[roomId].createWreck('tailing', [data], common.playerList[userId].color);
@@ -211,15 +214,10 @@ sockIO.on('connection', async (socket) => {
                 break;
 
             case 'boost_end':
-                if (userId === null || roomId === null) return console.warn('wrong access');
-                if (!(userId in common.playerList)) return;
-
                 sockIO.send('boost_end', { id: userId }, { roomId, mysock: socket });
                 break;
 
             case 'conflict':
-                if (userId === null || roomId === null) return console.warn('wrong access');
-                if (!(data.id in common.playerList)) return;
                 try {
                     const looserId = data.id;
                     const bodies = data.looserBodies;
