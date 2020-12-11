@@ -10,9 +10,9 @@ const SUBTRACT_POINT_PER_BOOST = 1;
 
 const DEBUG_OPTION = {
     ALWAYS_CREATE_ROOM: false,
-    AI_ONE: false,
+    AI_CNT: null,
     AI_SET_POS: null, //{ x: 15500, y: 15500 },
-    USER_SET_POS: { x: 15000, y: 15000 },
+    USER_SET_POS: null,
 };
     
 module.exports = {

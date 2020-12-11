@@ -176,7 +176,7 @@ sockIO.on('connection', async (socket) => {
             case 'position_all':
                 sockIO.send('position_all',
                     Object.values(common.roomList[roomId].lastTick),
-                    { roomId }
+                    { mysock: socket }
                 );
                 break;
 
