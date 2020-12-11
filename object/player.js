@@ -19,16 +19,20 @@ const START_POINT = 0;
 class Player {
     constructor(id, option = {}) {
         this.id = id;// || Utils.getNewId(common.playerList, '', 1000);
+        option = Object.assign({
+            socketId: null,
+            isMobile: null,
+            _aiHandler: null,
+            name: AI_NAME_LIST[Math.floor(Math.random() * AI_NAME_LIST.length)],
+            color: Utils.getRandomColor()
+        }, option);
         
-        this.socketId = option.socketId || null;
-        this._aiHandler = option._aiHandler || null;
+        this.socketId = option.socketId;
+        this.isMobile = option.isMobile;
         this.isAI = option.isAI;
-        // this.roomId = option.roomId; //* room join시 입력됨
-        this.name = (option.name === null) ?
-            AI_NAME_LIST[Math.floor(Math.random() * AI_NAME_LIST.length)] :
-            option.name
-        ;
-        this.color = option.color || Utils.getRandomColor();
+        this._aiHandler = option._aiHandler;
+        this.name = option.name;
+        this.color = option.color;
 
         if (this.isAI) {
             const startDegree = Math.floor(Math.random() * 360);
@@ -60,6 +64,7 @@ class Player {
     setCurrent(data) {
         if (data.x !== undefined) this.myLastTick.x = data.x;
         if (data.y !== undefined) this.myLastTick.y = data.y;
+        if (data.angle !== undefined) this.myLastTick.angle = data.angle;
         if (data.point !== undefined) this.myLastTick.point = data.point;
 
         if (
@@ -67,8 +72,6 @@ class Player {
             (this.myLastTick.y < 0 || this.myLastTick.y > STAGE_SIZE)
         ) {
             this.destroy('outmap');
-        // } else if (data.point) {
-        //     common.roomList[this.roomId].checkRank();
         }
     }
     static getDefaultLastTick() {
@@ -77,6 +80,7 @@ class Player {
             id: null,
             x: Math.ceil(Math.random() * STAGE_SIZE * CREATE_PLAYER_SIZE_PER_STAGE) + CREATE_PLAYER_MARGIN_PER_STAGE,
             y: Math.ceil(Math.random() * STAGE_SIZE * CREATE_PLAYER_SIZE_PER_STAGE) + CREATE_PLAYER_MARGIN_PER_STAGE,
+            angle: Math.round(Math.random() * 360),
             point: START_POINT
         };
     }
@@ -87,7 +91,7 @@ class Player {
             sockIO.send('delete_worm', this.id, { roomId: this.roomId });
 
             // 룸 내 플레이어 정보 모두 제거
-            common.roomList[this.roomId].leave(this.id, this.socketId);
+            common.roomList[this.roomId].leave(this);
         }
 
         // 플레이어 리스트 제거

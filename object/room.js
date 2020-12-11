@@ -5,14 +5,15 @@ const Player = require('../object/player.js');
 const Food = require('../object/food.js');
 
 const {
-    ONE_AI_WORM_DEBUG,
+    MS_PER_FRAME,
+    DEBUG_OPTION,
     TAILING_POINT_PER_BOOST, SUBTRACT_POINT_PER_BOOST,
     STAGE_SIZE, CREATE_FOOD_SIZE_PER_STAGE
 } = require('../handler/define.js');
 const CREATE_FOOD_MARGIN_PER_STAGE = STAGE_SIZE * (1 - CREATE_FOOD_SIZE_PER_STAGE) / 2;
 
 const ROOM_PLAYER_CAPACITY = 130;
-const ROOM_AI_CAPACITY = ONE_AI_WORM_DEBUG ? 1 : 100;
+const ROOM_AI_CAPACITY = DEBUG_OPTION.AI_ONE ? 1 : 100;
 
 const FOOD_START_CAPACITY = 2000;
 const FOOD_MIN_CAPACITY = 1000;
@@ -43,6 +44,9 @@ const AI_BOOST_MAX_MAINTAIN_TIME = 5000;
 const AI_BOOST_SPEED = AI_SPEED_PER_FRAME * 2;
 const AI_BOOST_ING_TIME = 300;
 
+const AI_FIND_TARGET_RANGE = 1000;
+const AI_REACH_TARGET_RANGE = 100;
+
 
 class Room {
     constructor(id) {
@@ -57,7 +61,8 @@ class Room {
     static setRoom(userObj, type) { // , roomId = null
         return new Promise(async function (resolve, reject) { try {
             let roomId = self.getNotFull();
-            // if (ONE_AI_WORM_DEBUG) roomId = false; // 매번 새로운 방 생성
+            // 매번 새로운 방 생성
+            if (DEBUG_OPTION.ALWAYS_CREATE_ROOM) roomId = false;
     
             if (roomId === false) {
                 console.log("creating room...");
@@ -92,11 +97,18 @@ class Room {
         this.lastTick[playerObj.id] = playerObj.myLastTick;
     }
 
-    leave(userId) {
-        delete this.lastTick[userId];
+    leave(playerObj) {
+        // 유저일 떄, 할당 받았던 ai핸들러 제거
+        !playerObj.isAI && this.playerList.forEach(playerData => {
+            if (playerData._aiHandler == playerObj.id) {
+                playerData._aiHandler = null;
+            }
+        });
 
-        let idx = this.playerList.findIndex(playerData => playerData.id == userId);
-        if (idx === -1) console.error('not found worm in room_playerList: ', userId)
+        delete this.lastTick[playerObj.id];
+
+        let idx = this.playerList.findIndex(playerData => playerData.id == playerObj.id);
+        if (idx === -1) console.error('not found worm in room_playerList: ', playerObj.id)
         this.playerList.splice(idx, 1);
     }
 
@@ -110,7 +122,7 @@ class Room {
         })[0]);
     }
     
-    createWreck(amount, bodies, color = null) {
+    createWreck(amount, bodies, color = null, wormId = null) {
         let createCount;
         const createList = [];
         for (createCount = 0; createCount < bodies.length; createCount++) {
@@ -126,9 +138,13 @@ class Room {
                 isWreck: true,
                 color
             });
-            createList.push(Object.assign({
+            const createObj = Object.assign({
                 color: this.foodList[foodId].color
-            }, this.foodList[foodId].tick));
+            }, this.foodList[foodId].tick);
+            if (wormId) {
+                createObj.wormId = wormId;
+            }
+            createList.push(createObj);
         }
         sockIO.send('new_food', createList, { roomId: this.id });
         // console.log(`Wreck: ${Object.keys(this.foodList).length} (+${createCount})`);
@@ -232,9 +248,7 @@ class Room {
 
             isCreated = true;
             const playerData = new Player(null, {
-                socketId: null,
                 isAI: true,
-                name: null,
                 lastTick: Player.getDefaultLastTick(),
             });
 
@@ -250,7 +264,9 @@ class Room {
             setTimeout(() => {
                 playerData.initId();
                 common.playerList[playerData.id] = playerData;
-                ONE_AI_WORM_DEBUG && common.playerList[playerData.id].setCurrent({ x: 5200, y: 5200 });
+                if (DEBUG_OPTION.AI_SET_POS) {
+                    common.playerList[playerData.id].setCurrent(DEBUG_OPTION.AI_SET_POS);
+                }
                 this.join(playerData);
                 
                 this.setAIHandle(common.socketList);
@@ -270,10 +286,10 @@ class Room {
     convertAI() {
 
     }
-    controlAI(dtms) {
+    controlAI(dt) {
         for (let idx = 0; idx < this.playerList.length; idx++) {
             const playerData = this.playerList[idx];
-            if (!playerData.isAI) continue;
+            if (!playerData.isAI || playerData._aiHandler === null) continue;
 
             // 부스터 체크
             const thatBoost = playerData.aiConf.boost;
@@ -290,7 +306,7 @@ class Room {
 
                 thatBoost.checkTime = Date.now() + AI_BOOST_COOLTIME - Math.round(Math.random() * AI_BOOST_COOLTIME * 0.2); // 쿨타임 20% 이내
             } else {
-                thatBoost.dropTimer += dtms;
+                thatBoost.dropTimer += dt * MS_PER_FRAME;
 
                 if (thatBoost.isRunning) {
                     if (Date.now() >= thatBoost.endTime) {
@@ -328,18 +344,19 @@ class Room {
             if (thatDegree.timer > AI_DEGREE_CHANGE_TIME) {
                 if (
                     playerData.aiConf.target &&
-                    Math.abs(playerData.aiConf.target.tick.x - playerData.myLastTick.x) < 10 &&
-                    Math.abs(playerData.aiConf.target.tick.y - playerData.myLastTick.y) < 10
+                    Math.abs(playerData.aiConf.target.tick.x - playerData.myLastTick.x) < AI_REACH_TARGET_RANGE &&
+                    Math.abs(playerData.aiConf.target.tick.y - playerData.myLastTick.y) < AI_REACH_TARGET_RANGE
                 ) {
                     playerData.aiConf.target = null
                 }
-                if (playerData.aiConf.target) {
+                if (playerData.aiConf.target === null) {
                     const targetList = Object.values(this.foodList)
                         .filter(foodData => 
-                            Math.abs(playerData.myLastTick.x - foodData.tick.x) < 1000 &&
-                            Math.abs(playerData.myLastTick.y - foodData.tick.y) < 1000
+                            Math.abs(playerData.myLastTick.x - foodData.tick.x) < AI_FIND_TARGET_RANGE &&
+                            Math.abs(playerData.myLastTick.y - foodData.tick.y) < AI_FIND_TARGET_RANGE
                         );
                     playerData.aiConf.target = targetList[Math.floor(Math.random() * targetList.length)];
+                    // playerData.aiConf.target = {tick: {x: 30000, y: 30000}}
                 }
                 thatDegree.timer = Math.round(Math.random() * AI_DEGREE_CHANGE_TIME * 0.5); // 쿨타임 50% 이내
 
@@ -347,38 +364,43 @@ class Room {
                 // ! 충돌 시 playerData.aiConf.target null 처리 필수
                 if (playerData.aiConf.target) {
                     const targetDest = 90 - (Math.atan2(
-                        playerData.aiConf.target.tick.y - playerData.myLastTick.y,
+                        playerData.myLastTick.y - playerData.aiConf.target.tick.y,
                         playerData.aiConf.target.tick.x - playerData.myLastTick.x,
                     ) / Math.PI * 180);
 
-                    if (Math.abs(thatDegree.dest - targetDest) <= 45) {
+                    if (Math.abs(thatDegree.dest - targetDest) <= 90) {
                         thatDegree.dest = targetDest
                     } else {
-                        thatDegree.dest += (thatDegree.dest - targetDest > 0) ? -45 : 45;
+                        thatDegree.dest += (thatDegree.dest - targetDest > 0) ? -90 : 90;
                     }
-                    // console.log(`set target dest(${playerData.aiConf.target.tick.x}/${playerData.aiConf.target.tick.y})`, thatDegree.dest)
+                    // console.log(`set target dest`,
+                    // `(${playerData.aiConf.target.tick.x}/${playerData.aiConf.target.tick.y})`,
+                    // `(${parseInt(playerData.myLastTick.x)}/${parseInt(playerData.myLastTick.y)})`,
+                    // thatDegree.dest)
                 } else {
                     thatDegree.dest += Math.round(Math.random() * 90) - 45; // 45도 이내 변화
                 }
                 // console.log('AI changing degree....', `${thatDegree.value} > ${thatDegree.dest}`);
             } else {
-                thatDegree.timer += dtms;
+                thatDegree.timer += dt * MS_PER_FRAME;
             }
 
             // 좌우 1도 변경을 줌
             thatDegree.value +=
-                (Math.abs(thatDegree.value - thatDegree.dest) < 1) ? 0 :
-                (thatDegree.value < thatDegree.dest) ? 1 :
-                (thatDegree.value > thatDegree.dest) ? -1 :
-                0;
+                (Math.abs(thatDegree.value - thatDegree.dest) < 2) ? 0 :
+                (thatDegree.value < thatDegree.dest) ? 2 :
+                (thatDegree.value > thatDegree.dest) ? -2 :
+                0
+            ;
+            // thatDegree.value = 0;
+            playerData.myLastTick.angle = thatDegree.value; // ! 추후 lastTick 직접 제어
 
             // Radian으로 변경해서 속도 반영
             const nowSpeed = thatBoost.isRunning ? AI_BOOST_SPEED : AI_SPEED_PER_FRAME;
-            const xV = Math.sin(thatDegree.value * Math.PI / 180) * nowSpeed;
-            const yV = Math.cos(thatDegree.value * Math.PI / 180) * nowSpeed;
-
+            const xV = Math.sin(thatDegree.value * Math.PI / 180) * nowSpeed * dt;
+            const yV = Math.cos(thatDegree.value * Math.PI / 180 + Math.PI) * nowSpeed * dt;
+            // console.log('평균이동',nowSpeed * dt)
             const data = {
-                id: playerData.id,
                 x: playerData.myLastTick.x + xV,
                 y: playerData.myLastTick.y + yV
             };
@@ -393,10 +415,6 @@ class Room {
         let aiIdx = 0;
         // console.log('userList/aiList...', userList.length, aiList.length)
         userList.map(userData => {
-            // if (userData.name == 'Ddd') return {
-            //     eachSockHdlr: socketList[userData.socketId],
-            //     userId: userData.id
-            // } ;
             let aiCount = 0;
             // 유저당AI할당수보다 적고, 할당할 AI가 남아있을 경우
             while (aiCount++ < aiCountPerUser &&  aiIdx < aiList.length) {

@@ -55,17 +55,16 @@ data: id
 ``` js
     data: [{ id, x, y }, ...]
 ```
+## angle_all
+- 모든 지렁이들의 좌표 수신
+``` js
+    data: [{ id, x, y }, ...]
+```
 ## tail_position
 - 마지막 body 정보 요청
 ``` js
     data: { id }
 ```
-## point
-- 자신이 컨트롤하는 지렁이 point 송신
-``` js
-    data: { id, point }
-```
-
 ## new_food
 - 신규 음식 생성시 수신
 ``` js
@@ -125,6 +124,8 @@ data: [{ x, y }, ...]
 ``` js
     data: { id, x, y }
 ```
+## position_all
+- 모든 지렁이들의 좌표 요청
 ## tail_position
 - 마지막 body 정보 응답
 ``` js

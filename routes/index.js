@@ -11,7 +11,7 @@ const Room = require('../object/room.js');
 const Player = require('../object/player.js');
 
 const {
-    TAILING_POINT_PER_BOOST,
+    DEBUG_OPTION,
     SUBTRACT_POINT_PER_BOOST
 } = require('../handler/define.js');
 
@@ -39,24 +39,30 @@ sockIO.on('connection', async (socket) => {
 
     let userId = null;
     let roomId = null;
+    let userIdx = null;
 
     // socket.emit('schema', common.SCHEMA_LIST);
     // socket.on("auth", function (data) {}); // console.log('auth', data);
 
     socket.on('message', async (message) => {
+        // console.log('!', message);
+        // eventName = message.slice(0, 1);
+        // data = message.slice(1);
         [eventName, data] = sockIO.decode(null, message);
+
 
         //* Message Log
         switch (eventName) {
             case 'boost_start':
             case 'boost_ing':
             case 'boost_end':
+            case 'position_all':
             case 'tail_position':
             case 'eat':
                 break;
             case 'position':
-                if (common.playerList[data.id] && common.playerList[data.id].name == 'Ddd')
-                    console.log(`got ${eventName}: `, data, new Date());
+                // if (common.playerList[data.id] && common.playerList[data.id].name == 'Ddd')
+                //     console.log(`got ${eventName}: `, data, new Date());
                 break;
             case 'inbound':
                 console.log(`got ${eventName}: `, data.requestId, data.responseId);
@@ -104,6 +110,7 @@ sockIO.on('connection', async (socket) => {
                 common.playerList[userId] = new Player(userId, {
                     socketId,
                     isAI: false,
+                    isMobile: data.isMobile,
                     name: data.name,
                     color: data.color,
                     lastTick: Player.getDefaultLastTick(),
@@ -111,12 +118,11 @@ sockIO.on('connection', async (socket) => {
 
                 // 룸 세팅 (join)
                 roomId = await Room.setRoom(common.playerList[userId], 'game');
-                //! 임시 정의
-                common.playerList[userId].setCurrent({
-                    x: 15000,
-                    y: 15000,
-                    point: data.name.indexOf('p') === 0 ? Number(data.name.substr(1)) :0
-                })
+                if (DEBUG_OPTION.USER_SET_POS) {
+                    common.playerList[userId].setCurrent(Object.assign(DEBUG_OPTION.USER_SET_POS, {
+                        point: data.name.indexOf('p') === 0 ? Number(data.name.substr(1)) : 0
+                    }))
+                }
 
                 console.log(
                     // Object.values(common.roomList[roomId].lastTick).map(e => `id(${e.id}) / name(${e.name}) / isAI(${e.isAI})`),
@@ -164,11 +170,18 @@ sockIO.on('connection', async (socket) => {
             case 'position':
                 //! 업데이트 검증 필요함
 
-                common.playerList[data.id].setCurrent(data);
+                common.playerList[userId].setCurrent(data);
+                break;
+
+            case 'position_all':
+                sockIO.send('position_all',
+                    Object.values(common.roomList[roomId].lastTick),
+                    { roomId }
+                );
                 break;
 
             case 'tail_position':
-                common.roomList[roomId].createWreck('tailing', [data], common.playerList[data.id].color);
+                common.roomList[roomId].createWreck('tailing', [data], common.playerList[data.id].color, data.id);
                 break;
 
             case 'eat':
@@ -188,11 +201,6 @@ sockIO.on('connection', async (socket) => {
                         common.playerList[data.wormId].setCurrent({
                             point: common.playerList[data.wormId].myLastTick.point + foodAmount
                         });
-
-                        sockIO.send('point', {
-                            id: data.wormId,
-                            point: common.playerList[data.wormId].myLastTick.point
-                        }, { roomId, mysock: socket });
                     }
                 } catch (error) {
                     console.error(error);
@@ -206,7 +214,7 @@ sockIO.on('connection', async (socket) => {
             case 'boost_ing':
                 if (common.playerList[userId].myLastTick.point - SUBTRACT_POINT_PER_BOOST < 0) return;
 
-                common.roomList[roomId].createWreck('tailing', [data], common.playerList[userId].color);
+                common.roomList[roomId].createWreck('tailing', [data], common.playerList[userId].color, userId);
 
                 common.playerList[userId].setCurrent({
                     point: common.playerList[userId].myLastTick.point - SUBTRACT_POINT_PER_BOOST
