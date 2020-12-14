@@ -10,20 +10,26 @@ const common = require('../handler/common.js');
 const Utils = require('../object/utils.js');
 
 common.SCHEMA_LIST = {
+    'events': [
+        'enter', 'ai', 'new_worm', 'delete_worm', 'angle_all',
+        'position', 'position_all', 'tail_position', 'new_food', 'delete_food',
+        'bound_check', 'inbound', 'boost_start', 'boost_ing', 'boost_end',
+        'eat', 'rank', 'conflict', 'test'
+    ],
     'S2C': {
+        test: {x: 'string'},
         enter: {
             myId: 'string',
             player: [{ name: 'string', color: 'string', id: 'string', x: 'float32', y: 'float32', point: 'uint16' }],
-            food: [{ id: 'string', color: 'string', x: 'float32', y: 'float32', amount: 'uint8' }],
-            rank: ['string']
+            food: [{ id: 'string', color: 'string', x: 'float32', y: 'float32', amount: 'uint8' }]
         },
         ai: ['string'],
         new_worm: [{ name: 'string', color: 'string', id: 'string', x: 'float32', y: 'float32', point: 'uint16', delay: 'uint16' }],
         delete_worm: 'string',
-        position: { id: 'string', x: 'float32', y: 'float32' },
+        angle_all: [{ id: 'string', angle: 'float32', point: 'uint16' }],
+        position: { x: 'float32', y: 'float32', angle: 'float32' },
         position_all: [{ id: 'string', x: 'float32', y: 'float32', point: 'uint16' }],
         tail_position: { id: 'string' },
-        point: { id: 'string', point: 'uint16' },
         new_food: [{ id: 'string', color: 'string', x: 'float32', y: 'float32', amount: 'uint8' }],
         delete_food: [{ wormId: 'string', foodId: 'string' }],
         bound_check: {
@@ -36,17 +42,16 @@ common.SCHEMA_LIST = {
             bodies: [{ x: 'float32', y: 'float32' }],
             paths: [{ x: 'float32', y: 'float32' }]
         },
-        map: [{ x: 'float32', y: 'float32' }],
         boost_start: { id: 'string' },
         boost_end: { id: 'string' },
-        rank: ['string'],
+        rank: ['string']
     },
     'C2S': {
-        enter: { name: 'string', color: 'string' },
-        position: { id: 'string', x: 'float32', y: 'float32' },
+        enter: { name: 'string', color: 'string', isMobile: 'boolean' },
+        position: { x: 'float32', y: 'float32', angle: 'float32' },
+        // position_all: {},
         tail_position: { id: 'string', x: 'float32', y: 'float32' },
         eat: { wormId: 'string', foodId: 'string' },
-        boost: { x: 'float32', y: 'float32' },
         bound_check: {
             requestId: 'string',
             bound: { x: 'float32', y: 'float32', width: 'uint16', height: 'uint16' }
@@ -74,16 +79,23 @@ const SCHEMA_BUILD = {
 
 io.send = function(eventName, data, options) {
     options = Object.assign({
+        encode: true,
         mysock: null,
         roomId: null
     }, options);
 
     try {
-        const sendData = 
+        let sendData = 
             // data
-            msgpack.encode([eventName, data])
-            // SCHEMA_BUILD.S2C[eventName].encode(data)
+            // options.encode ? msgpack.encode([eventName, data]) : [eventName, data]
+            options.encode ? SCHEMA_BUILD.S2C[eventName].encode(data) : data
         ;
+        let a = new Uint8Array([common.SCHEMA_LIST.events.indexOf(eventName)]);
+        let b = new Uint8Array(sendData);
+        var c = new Uint8Array(a.length + b.length);
+        c.set(a, 0), c.set(b, a.length);
+        sendData = c.buffer
+        // console.log('sendData', sendData)
 
         if (options.mysock && options.roomId === null) {
             options.mysock.readyState === WebSocket.OPEN &&
@@ -105,14 +117,20 @@ io.send = function(eventName, data, options) {
     }
 }
 
-io.decode = function(eventName, dataBuffer) {
+io.decode = function(dataBuffer) {
+    let eventName = null;
+    if (sp) {
+        const ui8Arr = new Uint8Array(dataBuffer);
+        eventName = common.SCHEMA_LIST.events[ui8Arr[0]];
+        dataBuffer = ui8Arr.slice(1);
+    }
     try {
-        return msgpack.decode(dataBuffer)
-        return dataBuffer;
-        if (SCHEMA_BUILD.C2S[eventName]) {
-            return SCHEMA_BUILD.C2S[eventName].decode(dataBuffer);
+        // return msgpack.decode(dataBuffer)
+        // return dataBuffer;
+        if (SCHEMA_BUILD.C2S[eventName] && dataBuffer.length > 0) {
+            return [eventName, SCHEMA_BUILD.C2S[eventName].decode(dataBuffer)];
         } else {
-            return null;
+            return [eventName, null];
         }
     } catch (error) {
         console.error(error);

@@ -30,6 +30,10 @@ router.get('/api', function (req, res, next) {
     });
 });
 
+router.get('/scheme', function (req, res, next) {
+    res.json(common.SCHEMA_LIST);
+});
+
 
 //* socket
 sockIO.on('connection', async (socket) => {
@@ -41,15 +45,14 @@ sockIO.on('connection', async (socket) => {
     let roomId = null;
     let userIdx = null;
 
-    // socket.emit('schema', common.SCHEMA_LIST);
+    // sockIO.send('test', {x:'testData'}, { encode: true, mysock: socket });
     // socket.on("auth", function (data) {}); // console.log('auth', data);
 
     socket.on('message', async (message) => {
         // console.log('!', message);
         // eventName = message.slice(0, 1);
         // data = message.slice(1);
-        [eventName, data] = sockIO.decode(null, message);
-
+        [eventName, data] = sockIO.decode(message);
 
         //* Message Log
         switch (eventName) {
@@ -141,8 +144,7 @@ sockIO.on('connection', async (socket) => {
                         Object.assign({
                             color: e.color
                         }, e.tick)
-                    ),
-                    rank: [] //!!
+                    )
                 }, { mysock: socket });
 
                 // AI 할당 및 재분배 알림
@@ -246,7 +248,6 @@ sockIO.on('connection', async (socket) => {
                         // 로그인 상태라면 랭킹 등록
                         if (userIdx !== null) {
                             let totalRank = Player.setRank(userIdx, userName, amount);
-                            sockIO.send('rank', totalRank, { mysock: socket });
                         }
 
                         // AI 할당 및 재분배 알림

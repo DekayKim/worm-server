@@ -141,9 +141,6 @@ class Room {
             const createObj = Object.assign({
                 color: this.foodList[foodId].color
             }, this.foodList[foodId].tick);
-            if (wormId) {
-                createObj.wormId = wormId;
-            }
             createList.push(createObj);
         }
         sockIO.send('new_food', createList, { roomId: this.id });
@@ -440,22 +437,6 @@ class Room {
             .map(playerData => playerData.id)
         ;
     }
-
-    // checkRank() {
-    //     let nowRank = Object.values(this.lastTick)
-    //         .sort((a, b) => a.point < b.point ? 1 : -1)
-    //         .map(e => [e.id, e.point]).filter((e,i) => i < 10)
-    //     ;
-
-    //     for (let idx = 0; idx < this.rank.length; idx++) {
-    //         if (this.rank[idx] !== nowRank[idx][0]) {
-    //             // console.log('!!!!!!!!!!!!!!rank change', JSON.stringify(nowRank))
-    //             sockIO.send(sockIO.to(this.id), 'rank', nowRank.map(e => e[0]));
-    //             break;
-    //         };
-    //     }
-    //     this.rank = nowRank.map(e => e[0]);
-    // }
 
 }
 
