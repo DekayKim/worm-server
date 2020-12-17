@@ -51,7 +51,9 @@ class Player {
                 }
             }
         }
-        
+
+        this.isBoosting = false;
+
         this.myLastTick = option.lastTick;
         this.myLastTick.id = this.id;
     }

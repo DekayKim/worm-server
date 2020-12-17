@@ -35,7 +35,7 @@ const FOOD_PERCENT = Object.entries({
     '9': 0.05,
     '10':0.05,
 });
-const AI_SPEED_PER_FRAME = 200 / 60; // 초당 10px
+const AI_SPEED_PER_FRAME = 300 / 60; // 초당 10px
 const AI_DEGREE_CHANGE_TIME = 1000;
 
 const AI_BOOST_COOLTIME = 2000;
@@ -391,11 +391,18 @@ class Room {
             ;
             // thatDegree.value = 0;
             playerData.myLastTick.angle = thatDegree.value; // ! 추후 lastTick 직접 제어
+            playerData.isBoosting = thatBoost.isRunning;
+        }
+    }
+
+    controlPlayer(dt) {
+        for (let idx = 0; idx < this.playerList.length; idx++) {
+            const playerData = this.playerList[idx];
 
             // Radian으로 변경해서 속도 반영
-            const nowSpeed = thatBoost.isRunning ? AI_BOOST_SPEED : AI_SPEED_PER_FRAME;
-            const xV = Math.sin(thatDegree.value * Math.PI / 180) * nowSpeed * dt;
-            const yV = Math.cos(thatDegree.value * Math.PI / 180 + Math.PI) * nowSpeed * dt;
+            const nowSpeed = playerData.isBoosting ? AI_BOOST_SPEED : AI_SPEED_PER_FRAME;
+            const xV = Math.sin(playerData.myLastTick.angle * Math.PI / 180) * nowSpeed * dt;
+            const yV = Math.cos(playerData.myLastTick.angle * Math.PI / 180 + Math.PI) * nowSpeed * dt;
             // console.log('평균이동',nowSpeed * dt)
             const data = {
                 x: playerData.myLastTick.x + xV,
@@ -404,6 +411,7 @@ class Room {
             playerData.setCurrent(data);
         }
     }
+
     setAIHandle(socketList, dyingSocket = null) {
         const aiList = this.playerList.filter(playerData => playerData.isAI);
         const userList = this.playerList.filter(playerData => !playerData.isAI);

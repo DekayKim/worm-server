@@ -11,7 +11,7 @@ const Utils = require('../object/utils.js');
 
 common.SCHEMA_LIST = {
     'events': [
-        'enter', 'ai', 'new_worm', 'delete_worm', 'angle_all',
+        'enter', 'ai', 'new_worm', 'delete_worm', 'angle', 'angle_all',
         'position', 'position_all', 'tail_position', 'new_food', 'delete_food',
         'bound_check', 'inbound', 'boost_start', 'boost_ing', 'boost_end',
         'eat', 'rank', 'conflict', 'test'
@@ -26,9 +26,9 @@ common.SCHEMA_LIST = {
         ai: ['string'],
         new_worm: [{ name: 'string', color: 'string', id: 'string', x: 'float32', y: 'float32', point: 'uint16', delay: 'uint16' }],
         delete_worm: 'string',
-        angle_all: [{ id: 'string', angle: 'float32', point: 'uint16' }],
+        angle_all: [{ id: 'string', angle: 'float32', point: 'uint16', x: 'float32', y: 'float32' }],
         position: { x: 'float32', y: 'float32', angle: 'float32' },
-        position_all: [{ id: 'string', x: 'float32', y: 'float32', point: 'uint16' }],
+        position_all: [{ id: 'string', angle: 'float32', x: 'float32', y: 'float32', point: 'uint16' }],
         tail_position: { id: 'string' },
         new_food: [{ id: 'string', color: 'string', x: 'float32', y: 'float32', amount: 'uint8' }],
         delete_food: [{ wormId: 'string', foodId: 'string' }],
@@ -48,6 +48,7 @@ common.SCHEMA_LIST = {
     },
     'C2S': {
         enter: { name: 'string', color: 'string', isMobile: 'boolean' },
+        angle: 'float32',
         position: { x: 'float32', y: 'float32', angle: 'float32' },
         // position_all: {},
         tail_position: { id: 'string', x: 'float32', y: 'float32' },
@@ -106,6 +107,7 @@ io.send = function(eventName, data, options) {
                     if (sendList[idx].socketId === null) continue; // AI 제외
                     const eachSock = common.socketList[sendList[idx].socketId];
 
+                    eachSock && // socketId가 이미 지워져 있어 undefined
                     eachSock !== options.mysock && // mysock null = 모든 유저
                     eachSock.readyState === WebSocket.OPEN &&
                     eachSock.send(sendData);

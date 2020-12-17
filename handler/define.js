@@ -12,7 +12,7 @@ const DEBUG_OPTION = {
     ALWAYS_CREATE_ROOM: false,
     AI_CNT: null,
     AI_SET_POS: null, //{ x: 15500, y: 15500 },
-    USER_SET_POS: null,
+    USER_SET_POS: null, //{ x: 15500, y: 15500 },
 };
     
 module.exports = {

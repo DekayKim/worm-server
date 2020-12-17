@@ -63,6 +63,7 @@ sockIO.on('connection', async (socket) => {
             case 'tail_position':
             case 'eat':
                 break;
+            case 'angle':
             case 'position':
                 // if (common.playerList[data.id] && common.playerList[data.id].name == 'Ddd')
                 //     console.log(`got ${eventName}: `, data, new Date());
@@ -86,6 +87,7 @@ sockIO.on('connection', async (socket) => {
             case 'inbound':
                 if (!(data.requestId in common.playerList)) return;
                 break;
+            case 'angle':
             case 'position':
             case 'boost_start':
             case 'boost_ing':
@@ -169,13 +171,17 @@ sockIO.on('connection', async (socket) => {
                 );
                 break;
 
-            case 'position':
+            case 'position': // 미사용
                 //! 업데이트 검증 필요함
-
                 common.playerList[userId].setCurrent(data);
                 break;
 
-            case 'position_all':
+            case 'angle':
+                //! 업데이트 검증 필요함
+                common.playerList[userId].setCurrent({ angle: data });
+                break;
+
+            case 'position_all': // 미사용
                 sockIO.send('position_all',
                     Object.values(common.roomList[roomId].lastTick),
                     { mysock: socket }
@@ -210,6 +216,7 @@ sockIO.on('connection', async (socket) => {
                 break;
 
             case 'boost_start':
+                common.playerList[userId].isBoosting = true;
                 sockIO.send('boost_start', { id: userId }, { roomId, mysock: socket });
                 break;
 
@@ -224,6 +231,7 @@ sockIO.on('connection', async (socket) => {
                 break;
 
             case 'boost_end':
+                common.playerList[userId].isBoosting = false;
                 sockIO.send('boost_end', { id: userId }, { roomId, mysock: socket });
                 break;
 

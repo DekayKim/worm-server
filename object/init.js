@@ -24,29 +24,33 @@ module.exports = function (app) {
             }
         }, 10000);
 
-        const runFrame = () => {
+        setInterval(() => {
             const nowT = Date.now();
-            const deltaT = nowT - prevT;
             const dt = (nowT - prevT) / MS_PER_FRAME;
             prevT = nowT;
             
             for (let roomId in common.roomList) {
                 common.roomList[roomId].controlAI(dt);
+                common.roomList[roomId].controlPlayer(dt);
                 
                 sockIO.send('angle_all',
-                    Object.values(common.roomList[roomId].lastTick).map(e => {
-                        return {
-                            id: e.id,
-                            angle: e.angle,
-                            point: e.point
-                        }
-                    }),
+                    Object.values(common.roomList[roomId].lastTick),
                     { roomId }
                 );
             }
-            setTimeout(runFrame, MS_PER_FRAME + (MS_PER_FRAME - deltaT))
-        }
-        runFrame();
+        }, MS_PER_FRAME);
+        
+        //* deltaT를 반영한 runFrame
+        // const runFrame = () => {
+        //     const nowT = Date.now();
+        //     const deltaT = nowT - prevT;
+        //     const dt = (nowT - prevT) / MS_PER_FRAME;
+        //     prevT = nowT;
+        //     ...
+        //     setTimeout(runFrame, MS_PER_FRAME + (MS_PER_FRAME - deltaT))
+        // }
+        // runFrame();
+
         resolve(true);
     })
 }
