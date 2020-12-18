@@ -47,7 +47,7 @@ common.SCHEMA_LIST = {
         rank: ['string']
     },
     'C2S': {
-        enter: { name: 'string', color: 'string', isMobile: 'boolean' },
+        enter: { userId: 'uint16', name: 'string', color: 'string', isMobile: 'boolean' },
         angle: 'float32',
         position: { x: 'float32', y: 'float32', angle: 'float32' },
         // position_all: {},
