@@ -121,7 +121,7 @@ class Player {
             
             const rtnObj = {
                 best: await mysql.query(
-                    'SELECT r1.name, r1.point, (SELECT COUNT(*) FROM `rank` WHERE point > r1.point) + 1 AS `rank` FROM `rank` as r1 WHERE userIdx = ?;'
+                    'SELECT r1.name, r1.point, (SELECT COUNT(*) FROM `rank` WHERE point > r1.point) + 1 AS `rank` FROM `rank` as r1 WHERE userIdx = ?;',
                     [userIdx],
                     { isReturnedOne: true }
                 ),
