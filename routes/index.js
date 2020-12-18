@@ -258,8 +258,9 @@ sockIO.on('connection', async (socket) => {
                     if (looserId === userId) {
                         // 로그인 상태라면 랭킹 등록
                         if (userIdx !== 0) {
-                            let totalRank = Player.setRank(userIdx, userName, amount);
-                            sockIO.send('rank', totalRank, { mysock: socket });
+                            Player.setRank(userIdx, userName, amount).then(totalRank => {
+                                sockIO.send('rank', totalRank, { mysock: socket });
+                            });
                         }
 
                         // AI 할당 및 재분배 알림
