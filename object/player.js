@@ -101,20 +101,22 @@ class Player {
     }
     static setRank(userIdx, name, point) {
         return new Promise(async function (resolve, reject) {
-            let q, v;
+            let q = null, v = [];
 
             let savedRank = await mysql.query(
                 'SELECT * FROM `rank` WHERE userIdx = ?;'
-            , [userIdx], { isReturnedOne: true });
+            , [userIdx]); //, { isReturnedOne: true });
 
-            if (savedRank) {
-                q = 'UPDATE `rank` SET point = ? WHERE userIdx = ?;'
-                v = [point, userIdx];
+            if (savedRank.length > 0) {
+                if (savedRank[0].point < point) {
+                    q = 'UPDATE `rank` SET point = ? WHERE userIdx = ?;'
+                    v = [point, userIdx];
+                }
             } else {
                 q = 'INSERT INTO `rank`(userIdx, name, point) VALUES (?, ?, ?);'
                 v = [userIdx, name, point];
             }
-            await mysql.query(q, v);
+            q !== null && await mysql.query(q, v);
             
             const rtnObj = (await mysql.query(
                 'SELECT * FROM `rank` ORDER BY point DESC limit 10;'
