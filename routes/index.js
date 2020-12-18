@@ -106,9 +106,12 @@ sockIO.on('connection', async (socket) => {
         //* Event Split
         switch (eventName) {
             case 'enter': //* 게임 시작
-                // 우선 로그인이 없으니 게스트만 허용
-                if (userId === null) {
+                // 클라이언트가 주는 ID값이 불안하다면 여기서도 axios 전송
+                if (data.userId === 0) {
                     userId = Utils.getNewId(common.playerList, '', 1000); //, 'guest:');
+                } else {
+                    userId = 'among_' + data.userId;
+                    userIdx = data.userId;
                 }
 
                 // 이후 플레이어 생성 시작
@@ -254,8 +257,9 @@ sockIO.on('connection', async (socket) => {
                     // AI가 아니라 플레이어 본인이라면 데이터 제거
                     if (looserId === userId) {
                         // 로그인 상태라면 랭킹 등록
-                        if (userIdx !== null) {
+                        if (userIdx !== 0) {
                             let totalRank = Player.setRank(userIdx, userName, amount);
+                            sockIO.send('rank', totalRank, { mysock: socket });
                         }
 
                         // AI 할당 및 재분배 알림

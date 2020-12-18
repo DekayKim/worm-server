@@ -44,7 +44,7 @@ common.SCHEMA_LIST = {
         },
         boost_start: { id: 'string' },
         boost_end: { id: 'string' },
-        rank: ['string']
+        rank: [{ name: 'string', rank: 'uint16', point: 'uint16' }]
     },
     'C2S': {
         enter: { userId: 'uint16', name: 'string', color: 'string', isMobile: 'boolean' },
