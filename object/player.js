@@ -120,9 +120,11 @@ class Player {
             q !== null && await mysql.query(q, v);
             
             const rtnObj = {
-                best: (await mysql.query(
-                    'SELECT rank.name, rank.point, (SELECT COUNT(*) FROM `rank` WHERE point <= rank.point) AS `rank` FROM `rank`;'
-                ))[0],
+                best: await mysql.query(
+                    'SELECT rank.name, rank.point, (SELECT COUNT(*) FROM `rank` WHERE point <= rank.point) AS `rank` FROM `rank` WEHRE userIdx = ?;'
+                    [userIdx],
+                    { isReturnedOne: true }
+                ),
                 world: (await mysql.query(
                     'SELECT * FROM `rank` ORDER BY point DESC limit 10;'
                 )).map((rtn, idx) => {
