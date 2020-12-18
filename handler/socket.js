@@ -14,7 +14,7 @@ common.SCHEMA_LIST = {
         'enter', 'ai', 'new_worm', 'delete_worm', 'angle', 'angle_all',
         'position', 'position_all', 'tail_position', 'new_food', 'delete_food',
         'bound_check', 'inbound', 'boost_start', 'boost_ing', 'boost_end',
-        'eat', 'rank', 'conflict', 'test'
+        'eat', 'record', 'conflict', 'test'
     ],
     'S2C': {
         test: {x: 'string'},
@@ -44,7 +44,10 @@ common.SCHEMA_LIST = {
         },
         boost_start: { id: 'string' },
         boost_end: { id: 'string' },
-        rank: [{ name: 'string', rank: 'uint16', point: 'uint16' }]
+        record: {
+            best: { name: 'string', rank: 'uint16', point: 'uint16' },
+            world: [{ name: 'string', rank: 'uint16', point: 'uint16' }]
+        }
     },
     'C2S': {
         enter: { userId: 'uint16', name: 'string', color: 'string', isMobile: 'boolean' },

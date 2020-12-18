@@ -258,8 +258,8 @@ sockIO.on('connection', async (socket) => {
                     if (looserId === userId) {
                         // 로그인 상태라면 랭킹 등록
                         if (userIdx !== 0) {
-                            Player.setRank(userIdx, userName, amount).then(totalRank => {
-                                sockIO.send('rank', totalRank, { mysock: socket });
+                            Player.setRank(userIdx, userName, amount).then(record => {
+                                sockIO.send('record', record, { mysock: socket });
                             });
                         }
 

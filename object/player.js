@@ -109,6 +109,7 @@ class Player {
 
             if (savedRank.length > 0) {
                 if (savedRank[0].point < point) {
+                    savedRank[0].point = point;
                     q = 'UPDATE `rank` SET point = ? WHERE userIdx = ?;'
                     v = [point, userIdx];
                 }
@@ -118,15 +119,18 @@ class Player {
             }
             q !== null && await mysql.query(q, v);
             
-            const rtnObj = (await mysql.query(
-                'SELECT * FROM `rank` ORDER BY point DESC limit 10;'
-            )).map((rtn, idx) => {
-                return {
-                    rank: idx + 1,
-                    name: rtn.name,
-                    point: rtn.point
-                }
-            });
+            const rtnObj = {
+                best: savedRank[0],
+                world: (await mysql.query(
+                    'SELECT * FROM `rank` ORDER BY point DESC limit 10;'
+                )).map((rtn, idx) => {
+                    return {
+                        rank: idx + 1,
+                        name: rtn.name,
+                        point: rtn.point
+                    }
+                })
+            };
             resolve(rtnObj);
         })
     }
