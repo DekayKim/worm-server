@@ -14,7 +14,7 @@ common.SCHEMA_LIST = {
         'enter', 'ai', 'new_worm', 'delete_worm', 'angle', 'angle_all',
         'position', 'position_all', 'tail_position', 'new_food', 'delete_food',
         'bound_check', 'inbound', 'boost_start', 'boost_ing', 'boost_end',
-        'eat', 'record', 'conflict', 'test'
+        'eat', 'record_best', 'record_world', 'conflict', 'test'
     ],
     'S2C': {
         test: {x: 'string'},
