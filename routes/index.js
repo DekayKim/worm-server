@@ -261,7 +261,8 @@ sockIO.on('connection', async (socket) => {
                             await Player.setRank(userIdx, userName, amount);
                         }
                         Player.getRank(userIdx).then(record => {
-                            sockIO.send('record', record, { mysock: socket });
+                            record.best && sockIO.send('record_best', record.best, { mysock: socket });
+                            sockIO.send('record_world', record.world, { mysock: socket });
                         });
 
                         // AI 할당 및 재분배 알림
