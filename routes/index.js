@@ -257,11 +257,12 @@ sockIO.on('connection', async (socket) => {
                     // AI가 아니라 플레이어 본인이라면 데이터 제거
                     if (looserId === userId) {
                         // 로그인 상태라면 랭킹 등록
-                        if (userIdx !== 0) {
-                            Player.setRank(userIdx, userName, amount).then(record => {
-                                sockIO.send('record', record, { mysock: socket });
-                            });
+                        if (userIdx !== null) {
+                            await Player.setRank(userIdx, userName, amount);
                         }
+                        Player.getRank(userIdx).then(record => {
+                            sockIO.send('record', record, { mysock: socket });
+                        });
 
                         // AI 할당 및 재분배 알림
                         common.roomList[roomId].setAIHandle(common.socketList, socket);

@@ -119,12 +119,12 @@ class Player {
             }
             q !== null && await mysql.query(q, v);
             
+            resolve();
+        })
+    }
+    static getRank(userIdx) {
+        return new Promise(async function (resolve, reject) {
             const rtnObj = {
-                best: await mysql.query(
-                    'SELECT r1.name, r1.point, (SELECT COUNT(*) FROM `rank` WHERE point > r1.point) + 1 AS `rank` FROM `rank` as r1 WHERE userIdx = ?;',
-                    [userIdx],
-                    { isReturnedOne: true }
-                ),
                 world: (await mysql.query(
                     'SELECT * FROM `rank` ORDER BY point DESC limit 10;'
                 )).map((rtn, idx) => {
@@ -135,6 +135,14 @@ class Player {
                     }
                 })
             };
+            
+            if (userIdx !== null) {
+                rtnObj.best = await mysql.query(
+                    'SELECT r1.name, r1.point, (SELECT COUNT(*) FROM `rank` WHERE point > r1.point) + 1 AS `rank` FROM `rank` as r1 WHERE userIdx = ?;',
+                    [userIdx],
+                    { isReturnedOne: true }
+                );
+            }
             resolve(rtnObj);
         })
     }
